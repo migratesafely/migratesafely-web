@@ -1,0 +1,71 @@
+<svg width="100%" height="100%" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <circle cx="200" cy="200" r="180" fill="#E8F5E9"/>
+  
+  <!-- Central person (referrer) -->
+  <g transform="translate(200, 180)">
+    <circle cx="0" cy="-25" r="25" fill="#2196F3"/>
+    <path d="M -20 5 Q -20 -10 0 -10 Q 20 -10 20 5 L 20 35 Q 20 45 15 50 L 10 60 L -10 60 L -15 50 Q -20 45 -20 35 Z" fill="#42A5F5"/>
+  </g>
+  
+  <!-- Connected people (network) -->
+  <!-- Top left person -->
+  <g transform="translate(100, 100)">
+    <circle cx="0" cy="-15" r="18" fill="#4CAF50"/>
+    <path d="M -15 0 Q -15 -8 0 -8 Q 15 -8 15 0 L 15 25 L -15 25 Z" fill="#66BB6A"/>
+  </g>
+  
+  <!-- Top right person -->
+  <g transform="translate(300, 100)">
+    <circle cx="0" cy="-15" r="18" fill="#4CAF50"/>
+    <path d="M -15 0 Q -15 -8 0 -8 Q 15 -8 15 0 L 15 25 L -15 25 Z" fill="#66BB6A"/>
+  </g>
+  
+  <!-- Bottom left person -->
+  <g transform="translate(100, 300)">
+    <circle cx="0" cy="-15" r="18" fill="#4CAF50"/>
+    <path d="M -15 0 Q -15 -8 0 -8 Q 15 -8 15 0 L 15 25 L -15 25 Z" fill="#66BB6A"/>
+  </g>
+  
+  <!-- Bottom right person -->
+  <g transform="translate(300, 300)">
+    <circle cx="0" cy="-15" r="18" fill="#4CAF50"/>
+    <path d="M -15 0 Q -15 -8 0 -8 Q 15 -8 15 0 L 15 25 L -15 25 Z" fill="#66BB6A"/>
+  </g>
+  
+  <!-- Connection lines (dashed) -->
+  <path d="M 200 180 L 100 100" stroke="#1976D2" stroke-width="3" stroke-dasharray="8 4" opacity="0.6"/>
+  <path d="M 200 180 L 300 100" stroke="#1976D2" stroke-width="3" stroke-dasharray="8 4" opacity="0.6"/>
+  <path d="M 200 180 L 100 300" stroke="#1976D2" stroke-width="3" stroke-dasharray="8 4" opacity="0.6"/>
+  <path d="M 200 180 L 300 300" stroke="#1976D2" stroke-width="3" stroke-dasharray="8 4" opacity="0.6"/>
+  
+  <!-- Connection nodes (circles at connection points) -->
+  <circle cx="150" cy="140" r="6" fill="#4CAF50"/>
+  <circle cx="250" cy="140" r="6" fill="#4CAF50"/>
+  <circle cx="150" cy="240" r="6" fill="#4CAF50"/>
+  <circle cx="250" cy="240" r="6" fill="#4CAF50"/>
+  
+  <!-- Dollar signs (rewards) -->
+  <g transform="translate(100, 60)">
+    <circle cx="0" cy="0" r="20" fill="#FFD700"/>
+    <text x="0" y="8" text-anchor="middle" fill="#FFFFFF" font-size="24" font-weight="bold">$</text>
+  </g>
+  <g transform="translate(300, 60)">
+    <circle cx="0" cy="0" r="20" fill="#FFD700"/>
+    <text x="0" y="8" text-anchor="middle" fill="#FFFFFF" font-size="24" font-weight="bold">$</text>
+  </g>
+  <g transform="translate(100, 340)">
+    <circle cx="0" cy="0" r="20" fill="#FFD700"/>
+    <text x="0" y="8" text-anchor="middle" fill="#FFFFFF" font-size="24" font-weight="bold">$</text>
+  </g>
+  <g transform="translate(300, 340)">
+    <circle cx="0" cy="0" r="20" fill="#FFD700"/>
+    <text x="0" y="8" text-anchor="middle" fill="#FFFFFF" font-size="24" font-weight="bold">$</text>
+  </g>
+  
+  <!-- Share icon at top -->
+  <g transform="translate(200, 50)">
+    <circle cx="0" cy="0" r="22" fill="#2196F3"/>
+    <path d="M -8 -8 L -8 8 L 8 8 L 8 -8 M 0 -8 L 0 -16 M -6 -12 L 0 -16 L 6 -12" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+</svg>

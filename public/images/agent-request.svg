@@ -1,0 +1,73 @@
+<svg width="100%" height="100%" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <circle cx="200" cy="200" r="180" fill="#FFF3E0"/>
+  <circle cx="200" cy="200" r="140" fill="#FFE0B2"/>
+  
+  <!-- Agent person -->
+  <g transform="translate(200, 180)">
+    <circle cx="0" cy="-35" r="32" fill="#1976D2"/>
+    <path d="M -45 35 Q -45 -15 0 -15 Q 45 -15 45 35 L 35 80 L -35 80 Z" fill="#1976D2"/>
+  </g>
+  
+  <!-- Badge/ID on agent -->
+  <g transform="translate(200, 170)">
+    <rect x="-12" y="0" width="24" height="30" rx="2" fill="#FFD700"/>
+    <rect x="-8" y="5" width="16" height="8" rx="1" fill="#FFF9C4"/>
+    <rect x="-8" y="16" width="16" height="2" rx="1" fill="#FFFFFF"/>
+    <rect x="-8" y="20" width="12" height="2" rx="1" fill="#FFFFFF"/>
+  </g>
+  
+  <!-- Briefcase -->
+  <g transform="translate(280, 240)">
+    <rect x="-25" y="0" width="50" height="40" rx="4" fill="#FF6B6B"/>
+    <rect x="-20" y="5" width="40" height="30" rx="2" fill="#EF5350"/>
+    <rect x="-10" y="-8" width="20" height="8" rx="2" fill="#C62828"/>
+    <circle cx="0" cy="20" r="4" fill="#FFEB3B"/>
+  </g>
+  
+  <!-- Document/Form -->
+  <g transform="translate(100, 220)">
+    <rect x="0" y="0" width="70" height="90" rx="4" fill="#FFFFFF" stroke="#1976D2" stroke-width="3"/>
+    <rect x="10" y="15" width="50" height="4" rx="2" fill="#64B5F6"/>
+    <rect x="10" y="25" width="45" height="4" rx="2" fill="#64B5F6"/>
+    <rect x="10" y="35" width="50" height="4" rx="2" fill="#64B5F6"/>
+    <rect x="10" y="50" width="30" height="4" rx="2" fill="#BDBDBD"/>
+    <rect x="10" y="60" width="40" height="4" rx="2" fill="#BDBDBD"/>
+    <rect x="10" y="70" width="35" height="4" rx="2" fill="#BDBDBD"/>
+  </g>
+  
+  <!-- Checkmark on document -->
+  <g transform="translate(135, 265)">
+    <circle cx="0" cy="0" r="16" fill="#4CAF50"/>
+    <path d="M -6 0 L -2 6 L 8 -6" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  
+  <!-- Handshake -->
+  <g transform="translate(200, 320)">
+    <!-- Left hand -->
+    <path d="M -40 0 L -20 -5 L -10 0 L -15 10 L -30 8 Z" fill="#FFB74D"/>
+    <rect x="-45" y="0" width="20" height="15" fill="#FF9800"/>
+    
+    <!-- Right hand -->
+    <path d="M 40 0 L 20 -5 L 10 0 L 15 10 L 30 8 Z" fill="#FFB74D"/>
+    <rect x="25" y="0" width="20" height="15" fill="#FF9800"/>
+  </g>
+  
+  <!-- Stars (quality/premium service) -->
+  <g opacity="0.7">
+    <path d="M 320 100 L 324 112 L 336 116 L 324 120 L 320 132 L 316 120 L 304 116 L 316 112 Z" fill="#FFD700"/>
+    <path d="M 80 100 L 84 112 L 96 116 L 84 120 L 80 132 L 76 120 L 64 116 L 76 112 Z" fill="#FFD700"/>
+  </g>
+  
+  <!-- Arrow pointing to agent (request direction) -->
+  <g transform="translate(140, 140)">
+    <path d="M 0 0 L 30 0 L 25 -8 M 30 0 L 25 8" stroke="#4CAF50" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  
+  <!-- Clock/Time indicator -->
+  <g transform="translate(70, 320)">
+    <circle cx="0" cy="0" r="20" fill="#2196F3"/>
+    <circle cx="0" cy="0" r="16" fill="#42A5F5"/>
+    <path d="M 0 -10 L 0 0 L 8 0" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
