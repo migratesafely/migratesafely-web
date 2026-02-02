@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AlertCircle, Upload, X, CheckCircle, FileText, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PublicPageTeaser } from "@/components/PublicPageTeaser";
 
 interface MemberData {
   membershipNumber: string;
@@ -320,6 +321,11 @@ export default function CommunityHardshipRequest() {
             <p className="text-gray-600 dark:text-gray-400">
               Submit your request for consideration under the Community Hardship Draw
             </p>
+          </div>
+
+          {/* Member-Only Teaser */}
+          <div className="mb-8">
+            <PublicPageTeaser showCTA={true} />
           </div>
 
           {!canSubmit && (

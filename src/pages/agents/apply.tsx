@@ -6,6 +6,7 @@ import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { 
   Shield, 
@@ -19,8 +20,13 @@ import {
   UserCheck,
   Mail,
   ArrowRight,
-  Info
+  Info,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
+import { authService } from "@/services/authService";
+import { systemSettingsService } from "@/services/systemSettingsService";
+import { supabase } from "@/integrations/supabase/client";
 
 const TRANSLATIONS = {
   en: {
@@ -220,7 +226,7 @@ const TRANSLATIONS = {
     },
     verificationProcess: {
       title: "যাচাইকরণ প্রক্রিয়া",
-      subtitle: "আমাদের পুঙ্খানুপুঙ্খ পর্যালোচনা নিশ্চিত করে যে শুধুমাত্র যোগ্য এজেন্টরা আমাদের নেটওয়ার্কে যোগদান করেন",
+      subtitle: "আমাদের পুঙ্খানুপুন পর্যালোচনা নিশ্চিত করে যে শুধুমাত্র যোগ্য এজেন্টরা আমাদের নেটওয়ার্কে যোগদান করেন",
       steps: [
         {
           icon: FileText,
@@ -252,8 +258,8 @@ const TRANSLATIONS = {
         "কখনও ভিসা বা ইমিগ্রেশন ফলাফলের গ্যারান্টি দেবেন না",
         "লিখিত চুক্তি সহ স্বচ্ছ মূল্য প্রদান করুন",
         "সর্বদা ক্লায়েন্টের গোপনীয়তা বজায় রাখুন",
-        "ইমিগ্রেশন আইন এবং বিধিমালা সম্পর্কে আপডেট থাকুন",
-        "পরিষেবা প্রদানের আগে কখনও অগ্রিম পেমেন্টের অনুরোধ করবেন না",
+        "ইমিগ্রেশন আইন এবং বিধিমালা মেনে চলতে হবে।",
+        "পরিষেবা প্রদানের আগে কখনও অগ্রিম পেমেন্টের অনোধ করবেন না",
         "৪৮ ঘন্টার মধ্যে ক্লায়েন্ট অনুসন্ধানের উত্তর দিন",
         "অবিলম্বে যে কোন স্বার্থের সংঘাত রিপোর্ট করুন",
         "পেশাদার দায়বদ্ধতা বীমা বজায় রাখুন"
@@ -336,9 +342,55 @@ export default function BecomeAgentPage() {
   const { language } = useLanguage();
   const t = TRANSLATIONS[language];
 
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [applicationsEnabled, setApplicationsEnabled] = useState(true);
+  const [checkingApplications, setCheckingApplications] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+
   const scrollToApplication = () => {
     router.push("/verify-agent");
   };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  useEffect(() => {
+    async function checkApplicationStatus() {
+      try {
+        const enabled = await systemSettingsService.isAgentApplicationsEnabled();
+        setApplicationsEnabled(enabled);
+      } catch (error) {
+        console.error("Error checking agent applications status:", error);
+        setApplicationsEnabled(false);
+      } finally {
+        setCheckingApplications(false);
+      }
+    }
+
+    checkApplicationStatus();
+  }, []);
+
+  async function checkAuth() {
+    try {
+      const user = await authService.getCurrentUser();
+      if (user) {
+        const profileData = await authService.getUserProfile(user.id);
+        if (profileData) {
+          setProfile(profileData);
+          // If already an agent/pending, redirect to dashboard/status
+          if (["agent", "agent_pending", "agent_suspended"].includes(profileData.role)) {
+            router.push(authService.getDashboardPath(profileData.role));
+          }
+        }
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error("Error checking auth:", error);
+      setLoading(false);
+    }
+  }
 
   return (
     <>

@@ -13,8 +13,10 @@ import {
   Globe,
   Award,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  HeadphonesIcon
 } from "lucide-react";
+import { PublicPageTeaser } from "@/components/PublicPageTeaser";
 
 const TRANSLATIONS = {
   en: {
@@ -237,6 +239,11 @@ export default function AgentsPage() {
             </div>
           </div>
         </section>
+
+        {/* Member-Only Teaser */}
+        <div className="mb-12">
+          <PublicPageTeaser showCTA={false} />
+        </div>
 
         {/* What is a Migratesafely Agent */}
         <section className="py-16 md:py-24">

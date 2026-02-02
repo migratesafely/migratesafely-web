@@ -10,7 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trophy, Calendar, TrendingUp, Gift, DollarSign } from "lucide-react";
+import { Loader2, Plus, Trophy, Calendar, TrendingUp, Gift, DollarSign, AlertCircle, Wallet } from "lucide-react";
+import { getPrizePoolStatus, validatePrizeDrawCreation } from "@/services/accounting/prizePoolIntegration";
+import { formatBDT, formatBDTPreview, parseBDT } from "@/lib/bdtFormatter";
+import { CommunityPrizeAwardPanel } from "@/components/CommunityPrizeAwardPanel";
+import { getDrawAwards } from "@/services/communityPrizeAwardService";
 
 interface Country {
   countryCode: string;
@@ -21,12 +25,18 @@ interface Country {
 interface PrizeDraw {
   id: string;
   countryCode: string;
+  drawName: string | null;
   drawDate: string;
+  drawTime: string | null;
+  poolType: "random" | "community" | null;
+  entryCutoffTime: string | null;
   announcementStatus: string;
   estimatedPrizePoolAmount: number;
   estimatedPrizePoolCurrency: string;
   forecastMemberCount: number;
   announcedAt: string | null;
+  fairnessLocked: boolean;
+  leftoverAmount: number;
 }
 
 interface Prize {
@@ -82,10 +92,18 @@ export default function AdminPrizeDrawsPage() {
   const [draws, setDraws] = useState<PrizeDraw[]>([]);
   const [selectedCountry, setSelectedCountry] = useState("");
   const [drawDate, setDrawDate] = useState("");
+  const [drawName, setDrawName] = useState("");
+  const [drawTime, setDrawTime] = useState("20:00"); // Default 8:00 PM
+  const [poolType, setPoolType] = useState<"random" | "community">("random");
   const [creating, setCreating] = useState(false);
   const [announcing, setAnnouncing] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Prize Pool Accounting State
+  const [prizePoolBalance, setPrizePoolBalance] = useState(0);
+  const [prizePoolLoading, setPrizePoolLoading] = useState(false);
+  const [totalPrizeValue, setTotalPrizeValue] = useState<Record<string, number>>({});
 
   // Prizes state
   const [drawPrizes, setDrawPrizes] = useState<Record<string, Prize[]>>({});
@@ -105,6 +123,10 @@ export default function AdminPrizeDrawsPage() {
 
   const [expiringAndRedrawing, setExpiringAndRedrawing] = useState<Record<string, boolean>>({});
   const [expireRedrawResults, setExpireRedrawResults] = useState<Record<string, { expired: number; redrawn: number }>>({});
+  
+  const [communityAwards, setCommunityAwards] = useState<Record<string, any[]>>({});
+  const [loadingCommunityAwards, setLoadingCommunityAwards] = useState<Record<string, boolean>>({});
+  const [currentAdminId, setCurrentAdminId] = useState<string>("");
 
   useEffect(() => {
     checkAdminAndLoadData();
@@ -131,8 +153,11 @@ export default function AdminPrizeDrawsPage() {
         return;
       }
 
+      setCurrentAdminId(user.id);
+
       await loadCountries();
       await loadDraws();
+      await loadPrizePoolBalance();
       setLoading(false);
     } catch (error) {
       console.error("Error checking admin:", error);
@@ -175,12 +200,18 @@ export default function AdminPrizeDrawsPage() {
     const drawsData = data.map((d) => ({
       id: d.id,
       countryCode: d.country_code || "",
+      drawName: d.draw_name,
       drawDate: d.draw_date,
+      drawTime: d.draw_time,
+      poolType: d.pool_type as "random" | "community" | null,
+      entryCutoffTime: d.entry_cutoff_time,
       announcementStatus: d.announcement_status || "COMING_SOON",
       estimatedPrizePoolAmount: d.estimated_prize_pool_amount || 0,
       estimatedPrizePoolCurrency: d.estimated_prize_pool_currency || "BDT",
       forecastMemberCount: d.forecast_member_count || 0,
       announcedAt: d.announced_at || null,
+      fairnessLocked: d.fairness_locked || false,
+      leftoverAmount: d.leftover_amount || 0,
     }));
 
     setDraws(drawsData);
@@ -188,8 +219,22 @@ export default function AdminPrizeDrawsPage() {
     drawsData.forEach((draw) => {
       loadPrizesForDraw(draw.id);
       loadWinnersForDraw(draw.id);
+      loadCommunityAwardsForDraw(draw.id);
       initializePrizeForm(draw.id, draw.estimatedPrizePoolCurrency);
     });
+  }
+
+  async function loadPrizePoolBalance() {
+    setPrizePoolLoading(true);
+    try {
+      const poolStatus = await getPrizePoolStatus();
+      setPrizePoolBalance(poolStatus.available_for_prizes);
+    } catch (error) {
+      console.error("Error loading prize pool balance:", error);
+      setPrizePoolBalance(0);
+    } finally {
+      setPrizePoolLoading(false);
+    }
   }
 
   async function loadPrizesForDraw(drawId: string) {
@@ -207,6 +252,13 @@ export default function AdminPrizeDrawsPage() {
 
       if (response.ok && data.success) {
         setDrawPrizes((prev) => ({ ...prev, [drawId]: data.prizes || [] }));
+        
+        // Calculate total prize value for this draw
+        const prizes = data.prizes || [];
+        const total = prizes.reduce((sum: number, prize: Prize) => {
+          return sum + (prize.prizeValueAmount * prize.numberOfWinners);
+        }, 0);
+        setTotalPrizeValue((prev) => ({ ...prev, [drawId]: total }));
       } else {
         console.error("Failed to load prizes:", data.error);
       }
@@ -242,6 +294,21 @@ export default function AdminPrizeDrawsPage() {
     }
   }
 
+  async function loadCommunityAwardsForDraw(drawId: string) {
+    setLoadingCommunityAwards((prev) => ({ ...prev, [drawId]: true }));
+    
+    try {
+      const result = await getDrawAwards(drawId);
+      if (result.success) {
+        setCommunityAwards((prev) => ({ ...prev, [drawId]: result.awards }));
+      }
+    } catch (error) {
+      console.error("Error loading community awards:", error);
+    } finally {
+      setLoadingCommunityAwards((prev) => ({ ...prev, [drawId]: false }));
+    }
+  }
+
   function initializePrizeForm(drawId: string, currencyCode: string) {
     setPrizeFormData((prev) => ({
       ...prev,
@@ -258,8 +325,8 @@ export default function AdminPrizeDrawsPage() {
   }
 
   async function handleCreateDraw() {
-    if (!selectedCountry || !drawDate) {
-      setErrorMessage("Please select country and draw date");
+    if (!selectedCountry || !drawDate || !drawName || !drawTime) {
+      setErrorMessage("Please fill in all required fields (Country, Name, Date, Time)");
       return;
     }
 
@@ -273,7 +340,10 @@ export default function AdminPrizeDrawsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           countryCode: selectedCountry,
+          drawName,
           drawDateIso: drawDate,
+          drawTime,
+          poolType,
         }),
       });
 
@@ -286,8 +356,13 @@ export default function AdminPrizeDrawsPage() {
       }
 
       setSuccessMessage("Prize draw created successfully!");
+      // Reset form
       setSelectedCountry("");
       setDrawDate("");
+      setDrawName("");
+      setDrawTime("20:00");
+      setPoolType("random");
+      
       await loadDraws();
       setCreating(false);
     } catch (error) {
@@ -342,6 +417,31 @@ export default function AdminPrizeDrawsPage() {
     const draw = draws.find((d) => d.id === drawId);
     if (!draw) return;
 
+    const prizeAmount = parseFloat(prizeValueAmount);
+    const winners = parseInt(numberOfWinners, 10);
+    const totalNewPrizeValue = prizeAmount * winners;
+
+    // Calculate current total for this draw
+    const currentDrawTotal = totalPrizeValue[drawId] || 0;
+    const newDrawTotal = currentDrawTotal + totalNewPrizeValue;
+
+    // Validate against Prize Pool balance
+    const validation = await validatePrizeDrawCreation([
+      ...((drawPrizes[drawId] || []).map((p) => ({ 
+        amount: p.prizeValueAmount * p.numberOfWinners, 
+        name: p.title 
+      }))),
+      { amount: totalNewPrizeValue, name: title }
+    ]);
+
+    if (!validation.allowed) {
+      setErrorMessage(
+        `Insufficient Prize Pool balance. Available: ${validation.current_balance} BDT, ` +
+        `Required: ${validation.required} BDT, Shortfall: ${validation.shortfall} BDT`
+      );
+      return;
+    }
+
     setCreatingPrize((prev) => ({ ...prev, [drawId]: true }));
     setErrorMessage("");
     setSuccessMessage("");
@@ -358,9 +458,9 @@ export default function AdminPrizeDrawsPage() {
           description: formData.description || "",
           prizeType,
           awardType,
-          prizeValueAmount: parseFloat(prizeValueAmount),
+          prizeValueAmount: prizeAmount,
           currencyCode: draw.estimatedPrizePoolCurrency,
-          numberOfWinners: parseInt(numberOfWinners, 10),
+          numberOfWinners: winners,
         }),
       });
 
@@ -369,6 +469,7 @@ export default function AdminPrizeDrawsPage() {
       if (response.ok && data.success) {
         setSuccessMessage("Prize created successfully");
         await loadPrizesForDraw(drawId);
+        await loadPrizePoolBalance(); // Refresh pool balance
         setShowPrizeForm((prev) => ({ ...prev, [drawId]: false }));
         initializePrizeForm(drawId, draw.estimatedPrizePoolCurrency);
       } else {
@@ -607,6 +708,43 @@ export default function AdminPrizeDrawsPage() {
             <p className="text-muted-foreground mt-2">Create and manage prize draws for countries</p>
           </div>
 
+          {/* Prize Pool Balance Card */}
+          <Card className="border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-900 dark:text-green-100">
+                <Wallet className="h-5 w-5" />
+                Prize Draw Pool Balance
+              </CardTitle>
+              <CardDescription className="text-green-700 dark:text-green-300">
+                Available funds for prize allocation (30% of membership fees)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {prizePoolLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-green-600" />
+                  <span className="text-sm text-muted-foreground">Loading balance...</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-green-700 dark:text-green-300">
+                      {prizePoolBalance.toLocaleString()}
+                    </span>
+                    <span className="text-xl text-green-600 dark:text-green-400">BDT</span>
+                  </div>
+                  <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-sm text-blue-900 dark:text-blue-100">
+                      This is a <strong>RESTRICTED LIABILITY</strong> account. Funds can only be used for prize payouts 
+                      and community support. Prize creation is blocked if total prize value exceeds available balance.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {errorMessage && (
             <Alert variant="destructive">
               <AlertDescription>{errorMessage}</AlertDescription>
@@ -646,8 +784,42 @@ export default function AdminPrizeDrawsPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="poolType">Prize Pool Source</Label>
+                  <Select value={poolType} onValueChange={(val: "random" | "community") => setPoolType(val)}>
+                    <SelectTrigger id="poolType">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="random">Random Prize Pool (70%)</SelectItem>
+                      <SelectItem value="community">Community Selected Pool (30%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Determines which funding pool will be used for prizes
+                  </p>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="drawName">Draw Name</Label>
+                  <Input 
+                    id="drawName" 
+                    placeholder="e.g. Europe Migration Support Package" 
+                    value={drawName} 
+                    onChange={(e) => setDrawName(e.target.value)} 
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="drawDate">Draw Date</Label>
                   <Input id="drawDate" type="date" value={drawDate} onChange={(e) => setDrawDate(e.target.value)} />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="drawTime">Draw Time (BD Time)</Label>
+                  <Input id="drawTime" type="time" value={drawTime} onChange={(e) => setDrawTime(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    Entry cutoff will be 1 hour before this time
+                  </p>
                 </div>
               </div>
 
@@ -662,7 +834,7 @@ export default function AdminPrizeDrawsPage() {
                 </Button>
               </div>
 
-              <Button onClick={handleCreateDraw} disabled={creating || !selectedCountry || !drawDate} className="w-full md:w-auto">
+              <Button onClick={handleCreateDraw} disabled={creating || !selectedCountry || !drawDate || !drawName} className="w-full md:w-auto">
                 {creating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -694,7 +866,9 @@ export default function AdminPrizeDrawsPage() {
                         <div className="flex items-start justify-between">
                           <div className="space-y-2">
                             <div className="flex items-center gap-3">
-                              <h3 className="text-lg font-semibold">{getCountryName(draw.countryCode)}</h3>
+                              <h3 className="text-lg font-semibold">
+                                {draw.drawName || getCountryName(draw.countryCode)}
+                              </h3>
                               <span
                                 className={`px-2 py-1 text-xs rounded-full ${
                                   draw.announcementStatus === "ANNOUNCED"
@@ -706,29 +880,29 @@ export default function AdminPrizeDrawsPage() {
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              <span>Draw Date: {new Date(draw.drawDate).toLocaleDateString()}</span>
+                            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4" />
+                                <span>
+                                  {new Date(draw.drawDate).toLocaleDateString()}
+                                  {draw.drawTime ? ` at ${draw.drawTime}` : ""}
+                                </span>
+                              </div>
+                              
+                              {draw.poolType && (
+                                <div className="flex items-center gap-2">
+                                  <Wallet className="h-4 w-4" />
+                                  <span className="capitalize">{draw.poolType} Pool</span>
+                                </div>
+                              )}
+                              
+                              {draw.entryCutoffTime && (
+                                <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                                  <AlertCircle className="h-4 w-4" />
+                                  <span>Cutoff: {new Date(draw.entryCutoffTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                              )}
                             </div>
-
-                            {draw.announcementStatus === "ANNOUNCED" && (
-                              <>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <TrendingUp className="h-4 w-4 text-blue-500" />
-                                  <span>
-                                    Prize Pool: {draw.estimatedPrizePoolAmount.toLocaleString()} {draw.estimatedPrizePoolCurrency}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <span>Forecast: {draw.forecastMemberCount} members</span>
-                                </div>
-                                {draw.announcedAt && (
-                                  <div className="text-xs text-muted-foreground">
-                                    Announced: {new Date(draw.announcedAt).toLocaleString()}
-                                  </div>
-                                )}
-                              </>
-                            )}
                           </div>
 
                           {draw.announcementStatus === "COMING_SOON" && (
@@ -744,6 +918,29 @@ export default function AdminPrizeDrawsPage() {
                             </Button>
                           )}
                         </div>
+
+                        {draw.announcementStatus === "ANNOUNCED" && draw.poolType === "community" && (
+                          <div className="border-t pt-4 mt-4">
+                            <CommunityPrizeAwardPanel
+                              drawId={draw.id}
+                              drawName={draw.drawName || `Draw ${draw.id.slice(0, 8)}`}
+                              prizes={(drawPrizes[draw.id] || [])
+                                .filter(p => p.awardType === "COMMUNITY_SUPPORT")
+                                .map(p => ({
+                                  id: p.id,
+                                  title: p.title,
+                                  amount: p.prizeValueAmount,
+                                  awardedCount: (communityAwards[draw.id] || []).filter((a: any) => a.prize_name === p.title).length,
+                                  totalCount: p.numberOfWinners
+                                }))}
+                              currentAdminId={currentAdminId}
+                              onAwardComplete={() => {
+                                loadCommunityAwardsForDraw(draw.id);
+                                loadWinnersForDraw(draw.id);
+                              }}
+                            />
+                          </div>
+                        )}
 
                         {draw.announcementStatus === "ANNOUNCED" && (
                             <div className="border-t pt-4 mt-4">
@@ -916,6 +1113,30 @@ export default function AdminPrizeDrawsPage() {
                               Prizes for this Draw
                             </div>
 
+                            {/* Draw Prize Total Summary */}
+                            {(totalPrizeValue[draw.id] || 0) > 0 && (
+                              <div className="bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900 dark:to-pink-900 rounded-lg p-3 border border-purple-200 dark:border-purple-700">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="font-semibold text-purple-900 dark:text-purple-100">
+                                    Total Prize Value (This Draw):
+                                  </span>
+                                  <span className="font-mono font-bold text-lg text-purple-700 dark:text-purple-300">
+                                    {(totalPrizeValue[draw.id] || 0).toLocaleString()} BDT
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs mt-1 text-purple-700 dark:text-purple-300">
+                                  <span>Remaining Pool Balance:</span>
+                                  <span className={`font-mono font-semibold ${
+                                    (prizePoolBalance - (totalPrizeValue[draw.id] || 0)) >= 0
+                                      ? "text-green-700 dark:text-green-300"
+                                      : "text-red-700 dark:text-red-300"
+                                  }`}>
+                                    {(prizePoolBalance - (totalPrizeValue[draw.id] || 0)).toLocaleString()} BDT
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
                             {loadingPrizes[draw.id] ? (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -985,7 +1206,7 @@ export default function AdminPrizeDrawsPage() {
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="EUROPE_PACKAGE">Europe Package</SelectItem>
+                                        <SelectItem value="EUROPE_PACKAGE">EuropePackage</SelectItem>
                                         <SelectItem value="MIDDLE_EAST_PACKAGE">Middle East Package</SelectItem>
                                         <SelectItem value="CASH_SUPPORT">Cash Support</SelectItem>
                                         <SelectItem value="OTHER">Other</SelectItem>
@@ -1018,6 +1239,11 @@ export default function AdminPrizeDrawsPage() {
                                       value={prizeFormData[draw.id]?.prizeValueAmount || ""}
                                       onChange={(e) => updatePrizeFormField(draw.id, "prizeValueAmount", e.target.value)}
                                     />
+                                    {prizeFormData[draw.id]?.prizeValueAmount && (
+                                      <p className="text-xs font-medium text-green-600 dark:text-green-400">
+                                        {formatBDTPreview(prizeFormData[draw.id].prizeValueAmount)}
+                                      </p>
+                                    )}
                                   </div>
 
                                   <div className="space-y-2">
@@ -1051,6 +1277,72 @@ export default function AdminPrizeDrawsPage() {
                                     rows={2}
                                   />
                                 </div>
+
+                                {/* Prize Pool Impact Display */}
+                                {prizeFormData[draw.id]?.prizeValueAmount && prizeFormData[draw.id]?.numberOfWinners && (
+                                  <Alert className="bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
+                                    <TrendingUp className="h-4 w-4 text-purple-600" />
+                                    <AlertDescription>
+                                      <div className="space-y-2 text-sm">
+                                        <div className="font-semibold text-purple-900 dark:text-purple-100">
+                                          Prize Pool Impact Analysis
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-purple-800 dark:text-purple-200">
+                                          <div>Current Draw Total:</div>
+                                          <div className="font-mono font-semibold text-right">
+                                            {(totalPrizeValue[draw.id] || 0).toLocaleString()} BDT
+                                          </div>
+                                          <div>This Prize Cost:</div>
+                                          <div className="font-mono font-semibold text-right">
+                                            {(parseFloat(prizeFormData[draw.id].prizeValueAmount) * 
+                                              parseInt(prizeFormData[draw.id].numberOfWinners)).toLocaleString()} BDT
+                                          </div>
+                                          <div className="border-t border-purple-300 dark:border-purple-700 pt-1 font-semibold">
+                                            New Draw Total:
+                                          </div>
+                                          <div className="border-t border-purple-300 dark:border-purple-700 pt-1 font-mono font-bold text-right">
+                                            {((totalPrizeValue[draw.id] || 0) + 
+                                              (parseFloat(prizeFormData[draw.id].prizeValueAmount) * 
+                                               parseInt(prizeFormData[draw.id].numberOfWinners))).toLocaleString()} BDT
+                                          </div>
+                                          <div className="border-t border-purple-300 dark:border-purple-700 pt-1">
+                                            Available Pool:
+                                          </div>
+                                          <div className="border-t border-purple-300 dark:border-purple-700 pt-1 font-mono font-semibold text-right">
+                                            {prizePoolBalance.toLocaleString()} BDT
+                                          </div>
+                                          <div className={`border-t border-purple-300 dark:border-purple-700 pt-1 font-bold ${
+                                            (prizePoolBalance - (totalPrizeValue[draw.id] || 0) - 
+                                              (parseFloat(prizeFormData[draw.id].prizeValueAmount) * 
+                                               parseInt(prizeFormData[draw.id].numberOfWinners))) >= 0
+                                              ? "text-green-700 dark:text-green-300"
+                                              : "text-red-700 dark:text-red-300"
+                                          }`}>
+                                            Remaining After:
+                                          </div>
+                                          <div className={`border-t border-purple-300 dark:border-purple-700 pt-1 font-mono font-bold text-right ${
+                                            (prizePoolBalance - (totalPrizeValue[draw.id] || 0) - 
+                                              (parseFloat(prizeFormData[draw.id].prizeValueAmount) * 
+                                               parseInt(prizeFormData[draw.id].numberOfWinners))) >= 0
+                                              ? "text-green-700 dark:text-green-300"
+                                              : "text-red-700 dark:text-red-300"
+                                          }`}>
+                                            {(prizePoolBalance - (totalPrizeValue[draw.id] || 0) - 
+                                              (parseFloat(prizeFormData[draw.id].prizeValueAmount) * 
+                                               parseInt(prizeFormData[draw.id].numberOfWinners))).toLocaleString()} BDT
+                                          </div>
+                                        </div>
+                                        {(prizePoolBalance - (totalPrizeValue[draw.id] || 0) - 
+                                          (parseFloat(prizeFormData[draw.id].prizeValueAmount) * 
+                                           parseInt(prizeFormData[draw.id].numberOfWinners))) < 0 && (
+                                          <div className="mt-2 p-2 bg-red-100 dark:bg-red-900 rounded text-red-900 dark:text-red-100 text-xs font-semibold">
+                                            ⚠️ INSUFFICIENT BALANCE - Prize creation will be blocked
+                                          </div>
+                                        )}
+                                      </div>
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
 
                                 <Button
                                   onClick={() => handleCreatePrize(draw.id)}

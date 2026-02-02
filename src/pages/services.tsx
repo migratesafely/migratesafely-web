@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { Shield, Users, Award, Globe, FileCheck, HeartHandshake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PublicPageTeaser } from "@/components/PublicPageTeaser";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const TRANSLATIONS = {
@@ -168,6 +169,11 @@ export default function ServicesPage() {
               <p className="text-xl text-gray-600 dark:text-gray-300">
                 {t.whyChooseSubtitle}
               </p>
+            </div>
+
+            {/* Member-Only Teaser */}
+            <div className="mb-12">
+              <PublicPageTeaser showCTA={false} />
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">

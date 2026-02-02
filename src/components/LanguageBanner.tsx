@@ -1,27 +1,45 @@
 import React from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { X } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function LanguageBanner() {
-  const { showBanner, dismissBanner } = useLanguage();
+  const { showBanner, dismissBanner, setLanguage } = useLanguage();
 
   if (!showBanner) return null;
 
   return (
-    <Alert className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-2xl mx-4 border-blue-500 bg-blue-50 dark:bg-blue-950">
-      <AlertDescription className="flex items-center justify-between">
-        <span className="text-blue-900 dark:text-blue-100">
-          এই সাইটটি বাংলায় দেখা যাচ্ছে — আপনি যেকোনো সময় ইংরেজিতে পরিবর্তন করতে পারেন
-        </span>
-        <button
-          onClick={dismissBanner}
-          className="ml-4 p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded"
-          aria-label="Dismiss banner"
-        >
-          <X className="h-4 w-4 text-blue-900 dark:text-blue-100" />
-        </button>
-      </AlertDescription>
-    </Alert>
+    <div className="bg-blue-600 text-white px-4 py-3 relative">
+      <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 pr-8">
+        <div className="text-sm text-center sm:text-left">
+          <p className="font-medium mb-1">
+            বাংলা ভাষায় দেখতে চান? (Want to view in Bengali?)
+          </p>
+          <p className="opacity-90 text-xs">
+            We noticed your browser language is Bengali. Would you like to switch?
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setLanguage("bn")}
+            className="bg-white text-blue-600 px-4 py-1.5 rounded-full text-sm font-semibold hover:bg-blue-50 transition-colors whitespace-nowrap"
+          >
+            হ্যাঁ (Yes)
+          </button>
+          <button
+            onClick={dismissBanner}
+            className="text-white/80 hover:text-white text-sm underline decoration-white/50 hover:decoration-white transition-all whitespace-nowrap"
+          >
+            No, keep English
+          </button>
+        </div>
+      </div>
+      <button
+        onClick={dismissBanner}
+        className="absolute top-2 right-2 p-1 text-white/60 hover:text-white transition-colors"
+        aria-label="Dismiss banner"
+      >
+        <X size={18} />
+      </button>
+    </div>
   );
 }

@@ -2,8 +2,9 @@ import Head from "next/head";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus, Search, UserCheck, Shield, CheckCircle, ArrowRight } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { UserPlus, Search, UserCheck, Shield, CheckCircle, ArrowRight, Gift, TrendingUp } from "lucide-react";
+import { PublicPageTeaser } from "@/components/PublicPageTeaser";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 const TRANSLATIONS = {
@@ -52,7 +53,7 @@ const TRANSLATIONS = {
     benefit3Title: "শুধুমাত্র যাচাইকৃত পেশাদার",
     benefit3Desc: "আপনি শুধুমাত্র সেই এজেন্টদের সাথে যোগাযোগ করেন যারা আমাদের কঠোর যাচাইকরণ প্রক্রিয়া পাস করেছেন, যার মধ্যে লাইসেন্স চেক এবং ব্যাকগ্রাউন্ড স্ক্রিনিং অন্তর্ভুক্ত।",
     ctaTitle: "আজই আপনার নিরাপদ যাত্রা শুরু করুন",
-    ctaSubtitle: "হাজার হাজার সদস্যদের সাথে যোগ দিন যারা যাচাইকৃত সহায়তার সাথে নিরাপদে মাইগ্রেট করছেন।",
+    ctaSubtitle: "হাজার হাজার সদস্যদের সাথে যোগ দিন যারা যাচাইকৃত সহায়তার সাথে নিরাপদে মাইট করছেন।",
     joinButton: "সদস্য হিসেবে যোগ দিন"
   }
 };
@@ -168,6 +169,9 @@ export default function HowItWorksPage() {
             <h2 className="text-3xl font-bold text-center mb-12 text-gray-900 dark:text-white">
               {t.benefitsTitle}
             </h2>
+            <div className="mb-12">
+              <PublicPageTeaser showCTA={false} />
+            </div>
             <div className="grid md:grid-cols-3 gap-8">
               <Card>
                 <CardHeader>

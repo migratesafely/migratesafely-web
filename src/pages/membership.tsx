@@ -2,11 +2,12 @@ import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
-import { CheckCircle2, Shield, Award, Users, Globe, Calendar } from "lucide-react";
+import { Check, Shield, Users, Award, TrendingUp, Calendar, Globe, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { PublicPageTeaser } from "@/components/PublicPageTeaser";
 
 const TRANSLATIONS = {
   en: {
@@ -142,6 +143,11 @@ export default function MembershipPage() {
             </div>
           </div>
         </section>
+
+        {/* Member-Only Teaser */}
+        <div className="mb-12">
+          <PublicPageTeaser showCTA={true} />
+        </div>
 
         {/* Membership Benefits */}
         <section className="py-16 px-6">

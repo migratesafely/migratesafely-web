@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,6 +18,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check for admin suspension error
+    if (router.query.error === "admin_suspended") {
+      setError(
+        "Admin access is currently suspended. Please contact support if this is unexpected."
+      );
+    }
+  }, [router.query]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();

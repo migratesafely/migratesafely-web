@@ -4,15 +4,21 @@ import { useState, useEffect } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Users, Award, MapPin, CheckCircle, AlertTriangle } from "lucide-react";
+import { Shield, Users, Award, MapPin, CheckCircle, AlertTriangle, Building2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { PrizeDrawCountdown } from "@/components/PrizeDrawCountdown";
+import { PublicPageTeaser } from "@/components/PublicPageTeaser";
+import { formatCurrency } from "@/lib/countryConfig";
 
 const TRANSLATIONS = {
   en: {
     // Meta
     pageTitle: "MigrateSafely.com - Safer Migration Starts Here | Verified Visa Agents Bangladesh",
     pageDescription: "Connect with verified migration agents, access verified scam reports, and join a trusted community. We help you migrate safely by connecting you to verified professionals.",
+    
+    // Language Selector
+    chooseLanguage: "Choose a Language",
     
     // Hero
     heroTitle: "MigrateSafely.com",
@@ -22,6 +28,20 @@ const TRANSLATIONS = {
     heroCtaPrimary: "Join as a Member",
     heroCtagSecondary: "Member Login",
     heroMembershipNote: "Membership fee applies (country-based pricing). Prize draws are free for active members.",
+    
+    // Pioneer Section
+    pioneerTitle: "The World's First Community-Governed Migration Verification Platform",
+    pioneerBody: "MigrateSafely pioneered a verification-first, community-driven migration protection system — combining verified agents, transparent processes, and governed reward mechanisms within one secure platform.",
+    pioneerValues: [
+      "Built to reduce fraud.",
+      "Built to protect migrants.",
+      "Built to last."
+    ],
+    pioneerFootnote: "As the first platform of its kind, MigrateSafely establishes a new global standard for migration verification, accountability, and trust.",
+    
+    // Public Page Teaser (NEW - Callout Box)
+    teaserMessage: "Additional benefits, tools, and upcoming services are available inside the secure member portal.",
+    teaserButton: "Join Now",
     
     // Why We Exist
     whyTitle: "Why We Exist",
@@ -107,6 +127,9 @@ const TRANSLATIONS = {
     pageTitle: "MigrateSafely.com - নিরাপদ অভিবাসন এখানে শুরু হয় | যাচাইকৃত মাইগ্রেশন এজেন্ট বাংলাদেশ",
     pageDescription: "যাচাইকৃত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত হন, যাচাইকৃত স্ক্যাম রিপোর্ট অ্যাক্সেস করুন এবং একটি বিশ্বস্ত কমিউনিটিতে যোগ দিন। আমরা আপনাকে যাচাইকৃত পেশাদারদের সাথে সংযুক্ত করে নিরাপদভাবে মাইগ্রেট করতে সাহায্য করি।",
     
+    // Language Selector
+    chooseLanguage: "একটি ভাষা নির্বাচন করুন",
+    
     // Hero
     heroTitle: "MigrateSafely.com",
     heroSubtitle: "নিরাপদ অভিবাসন এখানে শুরু হয়",
@@ -116,11 +139,25 @@ const TRANSLATIONS = {
     heroCtagSecondary: "সদস্য লগইন",
     heroMembershipNote: "সদস্যপদ ফি প্রযোজ্য (দেশ-ভিত্তিক মূল্য)। সক্রিয় সদস্যদের জন্য পুরস্কার ড্র বিনামূল্যে পুরস্কার ড্র বিনামূল্যে।",
     
+    // Pioneer Section (UPDATED - PROMPT: HOMEPAGE PIONEER STATEMENT)
+    pioneerTitle: "বিশ্বের প্রথম কমিউনিটি-নিয়ন্ত্রিত অভিবাসন যাচাই প্ল্যাটফর্ম",
+    pioneerBody: "MigrateSafely হলো বিশ্বের প্রথম যাচাই-ভিত্তিক, কমিউনিটি পরিচালিত অভিবাসন সুরক্ষা প্ল্যাটফর্ম — যেখানে যাচাইকৃত এজেন্ট, স্বচ্ছ প্রক্রিয়া এবং নিয়ন্ত্রিত পুরস্কার ব্যবস্থা একত্রে কাজ করে।",
+    pioneerValues: [
+      "প্রতারণা কমানোর জন্য তৈরি।",
+      "অভিবাসীদের সুরক্ষার জন্য নির্মিত।",
+      "দীর্ঘমেয়াদে পরিচালনার জন্য পরিকল্পিত।"
+    ],
+    pioneerFootnote: "নিজস্ব কাঠামো ও গভর্ন্যান্সের মাধ্যমে, MigrateSafely বিশ্বব্যাপী অভিবাসন যাচাই ও আস্থার নতুন মানদিড স্থাপন করেছে।",
+    
+    // Public Page Teaser (NEW - Callout Box)
+    teaserMessage: "নিরাপদ সদস্য পোর্টালের ভেতরে অতিরিক্ত সুবিধা, টুলস এবং আসন্ন সেবাসমূহ উপলব্ধ রয়েছে।",
+    teaserButton: "এখনই যোগ দিন",
+    
     // Why We Exist
     whyTitle: "কেন আমরা আছি",
-    whyDescription: "প্রতি বছর হাজার হাজার মানুষ মাইগ্রেশন স্ক্যামের শিকার হয়, জাল এজেন্ট এবং প্রতারণামূলক ভিসা প্রতিশ্রুতি যাচাই করা কঠিন।",
+    whyDescription: "প্রতি বছর হাজার হাজার মানুষ মাইগ্রেশন স্ক্যামের শিকার হয়, জাল এজেন্ট এবং প্রতারিত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত করি না",
     problemTitle: "সমস্যা",
-    problemItems: ["জাল মাইগ্রেশন এজেন্ট", "প্রতারণামূলক ভিসা প্রতিশ্রুতি", "সারাজীবনের সঞ্চয় হারানো", "কোনো জবাবদিহিতা নেই", "প্রমাণপত্র যাচাই করা কঠিন"],
+    problemItems: ["জাল মাইগ্রেশন এজেন্ট", "প্রতারিত মাইগ্রেশন এজেন্ট", "সারাজীবনের সঞ্চয় হারানো", "কোনো জবাবদিহিতা নেই", "প্রমাণপত্র যাচাই করা কিন্তু তাদের সেবা নিয়ন্ত্রণ করি না"],
     impactTitle: "প্রভাব",
     impactItems: ["পরিবার বিচ্ছিন্ন", "স্বপ্ন ভেঙে যাওয়া", "আর্থিক বিপর্যয়", "বিশ্বাস ধ্বংস", "আইনি জটিলতা"],
     solutionTitle: "আমাদের সমাধান",
@@ -128,7 +165,7 @@ const TRANSLATIONS = {
     
     // What We Do
     whatTitle: "আমরা কী করি",
-    whatDescription: "আমরা অনুরোধ এবং অনুমোদনের পরে সদস্যদের যাচাইকৃত এবং অনুমোদিত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত করি। অননুমোদিত যোগাযোগ রোধ করতে এবং গুণমান নিয়ন্ত্রণ বজায় রাখতে আমরা এজেন্টদের সর্বজনীনভাবে তালিকাভুক্ত করি না।",
+    whatDescription: "আমরা অনুরোধ এবং অনুমোদনের পরে সদস্যদের যাচাইকৃত অনুমোদিত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত করি। অননুমোদিত যোগাযোগ রোধ করতে এবং গুণমান নিয়ন্ত্রণ বজায় রাখতে আমরা এজেন্টদের সর্বজনীনভাবে তালিকাভুক্ত করি না।",
     approachTitle: "আমাদের পদ্ধতি",
     approachItems: [
       { title: "অনোধ-ভিত্তিক সংযোগ:", desc: "সদস্যরা তাদের প্রয়োজন বর্ণনা করে এজেন্ট অনোধ জমা দেন" },
@@ -148,7 +185,7 @@ const TRANSLATIONS = {
     benefitsTitle: "সদস্য সুবিধা",
     benefitsDescription: "আমাদের কমিউনিটিতে যোগ দিন এবং আপনার মাইগ্রেশন যাত্রা রক্ষা এবং সমর্থন করার জন্য ডিজাইন করা এক্সক্লুসিভ বৈশিষ্ট্যগুলি অ্যাক্সেস করুন।",
     benefit1Title: "যাচাইকৃত এজেন্ট সংযোগ",
-    benefit1Desc: "অনুরোধ জমা দিন এবং আমাদের নিরাপদ পর্যালোচনা প্রক্রিয়ার মাধ্যমে যাচাইকৃত, অনুমোদিত মাইগ্রেশন এজেন্টদের সাথে মিলিত হন।",
+    benefit1Desc: "অনুরোধ জমা দিন এবং আমাদের নিরাপদ পর্যালোচনা প্রক্রিয়ার মাধ্যমে যাচাইকৃত, অনোধে নিয়োগ দেওয়া হয়।",
     benefit2Title: "স্ক্যাম ব্ল্যাকলিস্ট",
     benefit2Desc: "প্রকৃত ভুক্তভোগীদের থেকে যাচাইকৃত স্ক্যাম রিপোর্ট অ্যাক্সেস করুন। প্রতিশ্রুতি দেওয়ার আগে এজেন্ট পরীক্ষা করুন। অন্যদের রক্ষা করতে স্ক্যাম রিপোর্ট করুন।",
     benefit3Title: "শুধুমাত্র সদস্যদের জন্য পুরস্কার ড্র",
@@ -158,7 +195,7 @@ const TRANSLATIONS = {
     
     // Disclaimer
     disclaimerTitle: "গুরুত্বপূর্ণ দাবিত্যাগ",
-    disclaimerSubtitle: "আমরা একটি ভিসা এজেন্সি নই। আমরা শুধুমাত্র আপনাকে যাচাইকৃত পেশাদারদের সাথে সংযুক্ত করি।",
+    disclaimerSubtitle: "আমরা একটি ভিসা এজেন্সি নই। আমরা শুধুমাত্র যাচাইকৃত পেশাদারদের সাথে সংযুক্ত করি।",
     disclaimerItems: [
       "সংযোগ প্ল্যাটফর্ম: আমরা সদস্য এবং যাচাইকৃত এজেন্টদের মধ্যে সংযোগ সহজতর করি",
       "কোনো ভিসা গ্যারান্টি নেই: ভিসা ফলাফল আপনার কেস, ডকুমেন্টেশন এবং সরকারি সিদ্ধান্তের উপর নির্ভর করে",
@@ -176,7 +213,7 @@ const TRANSLATIONS = {
     complianceTin: "টিআইএন:",
     complianceRegNo: "কোম্পানি নিবন্ধন নং:",
     complianceCountry: "পরিচালনার দেশ:",
-    complianceNote: "MigrateSafely.com একটি সদস্যপদ প্ল্যাটফর্ম যা ব্যবহারকারীদের যাচাইকৃত মাইগ্রেশন সহায়তা সেবার সাথে সংযুক্ত করে। আমরা ভিসা ইস্যু করি না বা সরকারি সিদ্ধান্ত নিই না।",
+    complianceNote: "MigrateSafely.com একটি সদস্যপদ প্ল্যাটফর্ম যা ব্যবহারকারীদের যাচাইকৃত মাইগ্রেশন সহায়তা সেবার সাথে সংযোগ করে। আমরা ভিসা ইস্যু করি না বা সরকারি সিদ্ধান্ত নিই না।",
     complianceAvailability: "বর্তমানে বাংলাদেশে উপলব্ধ। নতুন দেশ চালু হওয়ার আগে ঘোষণা করা হবে।",
     
     // Footer
@@ -283,66 +320,70 @@ export default function HomePage() {
       <div className="min-h-screen bg-background">
         <AppHeader />
 
-        {/* Language Selector Section - Between Header and Hero */}
-        <section className="py-4 bg-white dark:bg-gray-900">
-          <div className="flex justify-center">
-            <LanguageSelector />
+        {/* Language Selector Box - Above Hero */}
+        <section className="bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-900 py-4 sm:py-8">
+          <div className="container mx-auto px-4">
+            <div className="max-w-2xl mx-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 border-blue-100 dark:border-blue-900 p-5 sm:p-8">
+                <h2 className="text-2xl font-semibold text-center text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
+                  {t.chooseLanguage}
+                </h2>
+                <div className="flex justify-center">
+                  <LanguageSelector variant="default" showLabel={false} />
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* Hero Image - Full Width */}
-        <section className="w-full bg-white dark:bg-gray-900 pt-4 pb-4">
-          <div className="w-full">
+        <section className="w-full bg-white dark:bg-gray-900 pt-6 pb-6">
+          <div className="w-full" style={{ minHeight: "70vh" }}>
             <img 
               src="/images/homepage-hero.png" 
               alt="MigrateSafely - Safe migration starts here" 
-              className="w-full h-auto object-contain"
-              style={{ maxHeight: "80vh", objectPosition: "top center" }}
+              className="w-full h-full"
+              style={{ 
+                objectFit: "contain",
+                objectPosition: "center top",
+                minHeight: "70vh"
+              }}
             />
           </div>
         </section>
 
         {/* Hero Section */}
-        <section className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 py-20 relative overflow-hidden" style={{backgroundImage: "url('/images/banner-bg.svg')", backgroundSize: 'cover', backgroundPosition: 'center'}}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div className="text-center lg:text-left space-y-6 hero-fade-in">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-gray-100">
-                  {t.heroTitle}
-                </h1>
-                <p className="text-xl sm:text-2xl text-gray-700 dark:text-gray-300">
-                  {t.heroSubtitle}
-                </p>
-                <p className="text-lg text-gray-600 dark:text-gray-400">
-                  {t.heroDescription}
-                </p>
-                <p className="text-base font-semibold text-blue-600 dark:text-blue-400 mt-2">
-                  {t.heroLaunchNote}
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
-                  <Link href="/signup">
-                    <Button size="lg" className="text-lg px-8 py-6">
-                      {t.heroCtaPrimary}
-                    </Button>
-                  </Link>
-                  <Link href="/login">
-                    <Button size="lg" variant="outline" className="text-lg px-8 py-6">
-                      {t.heroCtagSecondary}
-                    </Button>
-                  </Link>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">
-                  {t.heroMembershipNote}
-                </p>
+        <section className="relative py-20 md:py-32">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto text-center space-y-6">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
+                {t.pioneerTitle}
+              </h1>
+              <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
+                {t.pioneerBody}
+              </p>
+              <div className="space-y-2 pt-4">
+                {t.pioneerValues.map((value, index) => (
+                  <p key={index} className="text-lg font-medium">
+                    {value}
+                  </p>
+                ))}
               </div>
-              <div className="flex justify-center lg:justify-end">
-                <img 
-                  src="/images/hero.svg" 
-                  alt="Safe migration and global travel" 
-                  className="w-full max-w-lg h-auto hero-float"
-                />
-              </div>
+              <p className="text-sm text-muted-foreground/80 pt-6">
+                {t.pioneerFootnote}
+              </p>
             </div>
+          </div>
+        </section>
+
+        {/* Member-Only Teaser */}
+        <section className="py-8">
+          <div className="container mx-auto px-4">
+            <PublicPageTeaser 
+              showCTA={true}
+              message={t.teaserMessage}
+              buttonText={t.teaserButton}
+            />
           </div>
         </section>
 
@@ -428,7 +469,7 @@ export default function HomePage() {
                     {t.approachItems.map((item, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <span className="text-green-600 mt-1">✓</span>
-                        <span><strong>{item.title}:</strong> {item.desc}</span>
+                        <span><strong>{item.title}</strong> {item.desc}</span>
                       </li>
                     ))}
                   </ul>
@@ -447,7 +488,7 @@ export default function HomePage() {
                     {t.dontDoItems.map((item, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <span className="text-red-600 mt-1">✗</span>
-                        <span><strong>{item.title}:</strong> {item.desc}</span>
+                        <span><strong>{item.title}</strong> {item.desc}</span>
                       </li>
                     ))}
                   </ul>
@@ -559,7 +600,7 @@ export default function HomePage() {
                   </p>
                   <ul className="space-y-2 text-gray-700 dark:text-gray-300">
                     {t.disclaimerItems.map((item, index) => (
-                      <li key={index}>{item}</li>
+                      <li key={index}>• {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -580,70 +621,41 @@ export default function HomePage() {
         </section>
 
         {/* Bangladesh Business Registration */}
-        {complianceSettings && (
-          <section className="py-12 bg-gray-100 dark:bg-gray-900">
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-              <Card className="border-2 border-gray-300 dark:border-gray-700">
-                <CardHeader>
-                  <CardTitle className="text-center text-xl">{t.complianceTitle}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg text-center">
-                    <div className="space-y-3 text-gray-700 dark:text-gray-300">
-                      <p className="text-lg">
-                        <strong>{t.complianceLicense}</strong>{" "}
-                        {complianceSettings.trade_license_no === "PENDING" 
-                          ? "Pending update" 
-                          : complianceSettings.trade_license_no}
-                      </p>
-                      {complianceSettings.trade_license_expiry && (
-                        <p className="text-lg">
-                          <strong>{t.complianceExpiry}</strong>{" "}
-                          {new Date(complianceSettings.trade_license_expiry).toLocaleDateString()}
-                        </p>
-                      )}
-                      {complianceSettings.tin_no && (
-                        <p className="text-lg">
-                          <strong>{t.complianceTin}</strong>{" "}
-                          {complianceSettings.tin_no === "PENDING" 
-                            ? "Pending update" 
-                            : complianceSettings.tin_no}
-                        </p>
-                      )}
-                      {complianceSettings.company_registration_no && (
-                        <p className="text-lg">
-                          <strong>{t.complianceRegNo}</strong>{" "}
-                          {complianceSettings.company_registration_no === "PENDING" 
-                            ? "Pending update" 
-                            : complianceSettings.company_registration_no}
-                        </p>
-                      )}
-                      <p className="text-lg">
-                        <strong>{t.complianceCountry}</strong> Bangladesh
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-center pt-4">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {t.complianceNote}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                      {t.complianceAvailability}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <Building2 className="h-6 w-6 text-gray-600 dark:text-gray-400" />
             </div>
-          </section>
-        )}
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Bangladesh Business Registration
+            </h3>
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400 font-medium">
+                Company Registration No:
+              </span>
+              <span className="text-gray-900 dark:text-gray-100 font-mono text-sm">
+                {complianceSettings?.company_registration_no || "PENDING"}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 dark:text-gray-400 font-medium">
+                Operating Country:
+              </span>
+              <span className="text-gray-900 dark:text-gray-100 font-medium">
+                Bangladesh 🇧🇩
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Footer */}
         <footer className="bg-gray-900 text-gray-300 py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid md:grid-cols-3 gap-8">
               <div>
-                <h3 className="text-white font-semibold text-lg mb-4">{t.footerTagline}</h3>
+                <h3 className="text-white font-semibold text-lg mb-4">MigrateSafely.com</h3>
                 <p className="text-sm">
                   {t.footerTagline}
                 </p>

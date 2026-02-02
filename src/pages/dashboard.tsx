@@ -8,6 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { VirtualMembershipCard } from "@/components/VirtualMembershipCard";
+import { TierProgressBar } from "@/components/TierProgressBar";
+import { TierBenefitsDisplay } from "@/components/TierBenefitsDisplay";
+import { LoyaltyProgramInfo } from "@/components/LoyaltyProgramInfo";
+import { PrizeClaimButton } from "@/components/PrizeClaimButton";
+import { formatCurrency } from "@/lib/countryConfig";
 import Link from "next/link";
 import Head from "next/head";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,6 +47,8 @@ import {
   Ticket,
   Sparkles,
 } from "lucide-react";
+import { MemberWelcome } from "@/components/MemberWelcome";
+import { PublicPageTeaser } from "@/components/PublicPageTeaser";
 
 const TEXT = {
   en: {
@@ -48,6 +57,8 @@ const TEXT = {
     welcome: "Welcome",
     loading: "Loading...",
     loginRequired: "Please log in to view your dashboard",
+    languagePreference: "Language Preference",
+    languageDescription: "Select your preferred language for the Members Portal",
     membership: {
       title: "Membership Status",
       active: "Active",
@@ -71,6 +82,11 @@ const TEXT = {
       balance: "Balance:",
       viewTransactions: "View Transactions"
     },
+    prizePool: {
+      title: "Community Prize Pool",
+      description: "All active members are automatically entered into monthly prize draws at no additional cost",
+      loading: "Loading prize pool information..."
+    },
     quickActions: {
       title: "Quick Actions",
       prizeDraw: "Enter Prize Draw",
@@ -88,6 +104,8 @@ const TEXT = {
     welcome: "স্বাগতম",
     loading: "লোড হচ্ছে...",
     loginRequired: "আপনার ড্যাশবোর্ড দেখতে দয়া করে লগইন করুন",
+    languagePreference: "ভাষা পছন্দ",
+    languageDescription: "সদস্য পোর্টালের জন্য আপনার পছন্দের ভাষা নির্বাচন করুন",
     membership: {
       title: "সদস্যপদের স্ট্যাটাস",
       active: "সক্রিয়",
@@ -111,6 +129,11 @@ const TEXT = {
       balance: "ব্যালেন্স:",
       viewTransactions: "লেনদেন দেখুন"
     },
+    prizePool: {
+      title: "কমিউনিটি পুরস্কার পুল",
+      description: "সকল সক্রিয় সদস্য স্বয় করুন এবং পুরস্কার ড্রতে প্রবেশ করে কোনো অতিরিক্ত খরচ ছাড়াই",
+      loading: "পুরস্কার পুল তথ্য লোড হচ্ছে..."
+    },
     quickActions: {
       title: "দ্রুত কাজ",
       prizeDraw: "পুরস্কার ড্রতে প্রবেশ করুন",
@@ -120,6 +143,100 @@ const TEXT = {
       myAgentRequests: "আমার এজেন্ট অনোধ",
       mailbox: "মেইলবক্স",
       contactSupport: "সাপোর্টে যোগাযোগ করুন"
+    }
+  },
+  es: {
+    pageTitle: "Panel de Control | Migrar de Forma Segura",
+    metaDescription: "Gestiona tu membresía, referencias y recursos de migración",
+    welcome: "Bienvenido",
+    loading: "Cargando...",
+    loginRequired: "Por favor inicia sesión para ver tu panel de control",
+    languagePreference: "Preferencia de Idioma",
+    languageDescription: "Selecciona tu idioma preferido para el Portal de Miembros",
+    membership: {
+      title: "Estado de Membresía",
+      active: "Activo",
+      inactive: "Inactivo",
+      expired: "Expirado",
+      validUntil: "Válido Hasta:",
+      getStarted: "Comenzar"
+    },
+    referral: {
+      title: "Tu Código de Referencia",
+      description: "Comparte tu código de referencia y gana recompensas",
+      code: "Código:",
+      copyCode: "Copiar Código",
+      copied: "¡Copiado!",
+      totalReferrals: "Referencias Totales:",
+      activeReferrals: "Referencias Activas:",
+      totalEarnings: "Ganancias Totales:"
+    },
+    wallet: {
+      title: "Saldo de Billetera",
+      balance: "Saldo:",
+      viewTransactions: "Ver Transacciones"
+    },
+    prizePool: {
+      title: "Fondo Comunitario de Premios",
+      description: "Todos los miembros activos participan automáticamente en sorteos mensuales sin costo adicional",
+      loading: "Cargando información del fondo de premios..."
+    },
+    quickActions: {
+      title: "Acciones Rápidas",
+      prizeDraw: "Participar en Sorteo",
+      reportScam: "Reportar una Estafa",
+      viewScamReports: "Ver Reportes de Estafas",
+      requestAgent: "Solicitar un Agente Aprobado",
+      myAgentRequests: "Mis Solicitudes de Agente",
+      mailbox: "Buzón de Correo",
+      contactSupport: "Contactar Soporte"
+    }
+  },
+  fr: {
+    pageTitle: "Tableau de Bord | Migrer en Toute Sécurité",
+    metaDescription: "Gérez votre adhésion, vos parrainages et vos ressources de migration",
+    welcome: "Bienvenue",
+    loading: "Chargement...",
+    loginRequired: "Veuillez vous connecter pour voir votre tableau de bord",
+    languagePreference: "Préférence de Langue",
+    languageDescription: "Sélectionnez votre langue préférée pour le Portail des Membres",
+    membership: {
+      title: "Statut d'Adhésion",
+      active: "Actif",
+      inactive: "Inactif",
+      expired: "Expiré",
+      validUntil: "Valide Jusqu'au:",
+      getStarted: "Commencer"
+    },
+    referral: {
+      title: "Votre Code de Parrainage",
+      description: "Partagez votre code de parrainage et gagnez des récompenses",
+      code: "Code:",
+      copyCode: "Copier le Code",
+      copied: "Copié!",
+      totalReferrals: "Parrainages Totaux:",
+      activeReferrals: "Parrainages Actifs:",
+      totalEarnings: "Gains Totaux:"
+    },
+    wallet: {
+      title: "Solde du Portefeuille",
+      balance: "Solde:",
+      viewTransactions: "Voir les Transactions"
+    },
+    prizePool: {
+      title: "Cagnotte Communautaire",
+      description: "Tous les membres actifs participent automatiquement aux tirages mensuels sans frais supplémentaires",
+      loading: "Chargement des informations de la cagnotte..."
+    },
+    quickActions: {
+      title: "Actions Rapides",
+      prizeDraw: "Participer au Tirage au Sort",
+      reportScam: "Signaler une Arnaque",
+      viewScamReports: "Voir les Signalements d'Arnaques",
+      requestAgent: "Demander un Agent Approuvé",
+      myAgentRequests: "Mes Demandes d'Agent",
+      mailbox: "Boîte aux Lettres",
+      contactSupport: "Contacter le Support"
     }
   }
 };
@@ -143,14 +260,20 @@ export default function DashboardPage() {
   const { language } = useLanguage();
   const t = TEXT[language];
   
+  const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [acceptedAgreement, setAcceptedAgreement] = useState(false);
   const [showAgreementModal, setShowAgreementModal] = useState(false);
   const [updatingAgreement, setUpdatingAgreement] = useState(false);
   const [membership, setMembership] = useState<MembershipData | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [tierProgress, setTierProgress] = useState<any>(null);
+  const [loadingTierProgress, setLoadingTierProgress] = useState(true);
+  const [prizePoolBalance, setPrizePoolBalance] = useState<number>(0);
+  const [loadingPrizePool, setLoadingPrizePool] = useState(true);
 
   useEffect(() => {
     async function checkAuth() {
@@ -174,7 +297,13 @@ export default function DashboardPage() {
         }
 
         setProfile(profile);
-        setLoading(false);
+
+        // Detect first login for welcome message
+        if (profile && !profile.welcome_seen) {
+          setIsFirstLogin(true);
+        }
+
+        await loadPrizePoolData();
       } catch (error) {
         console.error("Error checking auth:", error);
         router.push("/login");
@@ -229,11 +358,59 @@ export default function DashboardPage() {
         });
       }
 
+      // Load tier progress data
+      await loadTierProgress(user.id);
+
+      // Load prize pool data
+      await loadPrizePoolData();
+
       setLoading(false);
     } catch (error) {
       console.error("Error loading user data:", error);
       setErrorMessage("Error loading dashboard data");
       setLoading(false);
+    }
+  }
+
+  async function loadTierProgress(userId: string) {
+    try {
+      setLoadingTierProgress(true);
+      const { data, error } = await supabase.rpc("get_member_tier_progress", {
+        p_member_id: userId,
+      });
+
+      if (error) {
+        console.error("Error loading tier progress:", error);
+      } else if (data && data.length > 0) {
+        setTierProgress(data[0]);
+      }
+    } catch (error) {
+      console.error("Error in loadTierProgress:", error);
+    } finally {
+      setLoadingTierProgress(false);
+    }
+  }
+
+  async function loadPrizePoolData() {
+    try {
+      setLoadingPrizePool(true);
+
+      // Get Prize Pool balance from member_prize_pool_view (member-safe, read-only)
+      const { data: poolData, error: poolError } = await supabase
+        .from("member_prize_pool_view")
+        .select("total_prize_pool_balance")
+        .single();
+
+      if (!poolError && poolData) {
+        setPrizePoolBalance((poolData as any).total_prize_pool_balance || 0);
+      } else if (poolError) {
+        console.error("Error loading prize pool:", poolError);
+        // Fail silently - display will show 0 or "unavailable" state
+      }
+    } catch (error) {
+      console.error("Error loading prize pool data:", error);
+    } finally {
+      setLoadingPrizePool(false);
     }
   }
 
@@ -407,17 +584,57 @@ export default function DashboardPage() {
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">{t.pageTitle.split(" | ")[0]}</h1>
-              <p className="text-muted-foreground mt-2">
-                {t.welcome}, {profile?.fullName || profile?.email}
-              </p>
-            </div>
+            {/* Member Welcome Message */}
+            {profile && (
+              <MemberWelcome
+                firstName={profile.first_name || "Member"}
+                memberNumber={profile.member_number || "N/A"}
+                isFirstLogin={isFirstLogin}
+              />
+            )}
 
-            {errorMessage && (
-              <Alert variant="destructive">
-                <AlertDescription>{errorMessage}</AlertDescription>
-              </Alert>
+            {/* Prize Claim Section (Only visible if user has claimable prizes) */}
+            <PrizeClaimButton />
+
+            {/* Prize Pool Visibility Card */}
+            {membership?.status === "active" && (
+              <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950 border-yellow-200 dark:border-yellow-800">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-yellow-900 dark:text-yellow-100">
+                    <Trophy className="h-6 w-6" />
+                    {t.prizePool.title}
+                  </CardTitle>
+                  <CardDescription className="text-yellow-800 dark:text-yellow-200">
+                    {t.prizePool.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {loadingPrizePool ? (
+                    <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">{t.prizePool.loading}</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Prize Pool Balance - READ-ONLY */}
+                      <div className="p-6 bg-white dark:bg-gray-900 rounded-lg border border-yellow-200 dark:border-yellow-800 text-center">
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-2">
+                          Community Prize Pool
+                        </p>
+                        <p className="text-4xl font-bold text-yellow-900 dark:text-yellow-100">
+                          {prizePoolBalance.toLocaleString(language === 'bn' ? 'bn-BD' : 'en-US', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                          })} BDT
+                        </p>
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                          Updated periodically
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -472,7 +689,7 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-sm text-muted-foreground">Membership Fee</p>
                       <p className="text-lg font-semibold">
-                        {membership.membershipFeeAmount} {membership.currencyCode}
+                        {formatCurrency(membership.membershipFeeAmount, language === 'bn' ? 'bn' : 'en')}
                       </p>
                     </div>
                   </CardContent>
@@ -633,6 +850,23 @@ export default function DashboardPage() {
                     </CardHeader>
                   </Card>
 
+                  <Card 
+                    className="hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => router.push("/document-verification")}
+                  >
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-purple-600" />
+                        Document Verification
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Request verification of sponsorship letters, invitations, and employment documents
+                      </p>
+                    </CardContent>
+                  </Card>
+
                   <Card className="hover:shadow-lg transition-shadow">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -662,6 +896,8 @@ export default function DashboardPage() {
                 </p>
               </CardContent>
             </Card>
+
+            <LoyaltyProgramInfo />
           </div>
         </main>
       </div>

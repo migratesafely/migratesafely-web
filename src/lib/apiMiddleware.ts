@@ -5,12 +5,14 @@ import { agentPermissionsService } from "@/services/agentPermissionsService";
 /**
  * API Middleware for role-based access control
  * Enforces permission boundaries for agents and admins
+ * CRITICAL: MASTER_ADMIN is READ-ONLY - blocks all mutations
  */
 
 export interface AuthenticatedRequest extends NextApiRequest {
   userId?: string;
   userRole?: string;
   userEmail?: string;
+  adminId?: string;
 }
 
 /**
@@ -64,7 +66,32 @@ export async function requireAuth(
 }
 
 /**
+ * CRITICAL: Block MASTER_ADMIN from all mutation operations
+ * Master Admin is READ-ONLY - can only view data, never modify
+ */
+function blockMasterAdminMutations(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  userRole: string
+): boolean {
+  if (userRole === "master_admin") {
+    // Allow only GET requests (read-only)
+    if (req.method !== "GET") {
+      res.status(403).json({
+        error: "Forbidden - Master Admin access is read-only",
+        details: "Master Admin cannot create, update, or delete data. This role is for oversight and auditing only.",
+        allowedMethods: ["GET"],
+        blockedMethod: req.method,
+      });
+      return true; // Blocked
+    }
+  }
+  return false; // Not blocked
+}
+
+/**
  * Require admin role - blocks agents and members
+ * CRITICAL: Also enforces Master Admin read-only restrictions
  */
 export async function requireAdminRole(
   req: NextApiRequest,
@@ -73,6 +100,11 @@ export async function requireAdminRole(
   const auth = await requireAuth(req, res);
   
   if (!auth) {
+    return null;
+  }
+
+  // CRITICAL: Block Master Admin mutations before other checks
+  if (blockMasterAdminMutations(req, res, auth.userRole)) {
     return null;
   }
 
@@ -223,3 +255,68 @@ export async function checkPermission(
 
   return true;
 }
+
+/**
+ * Higher-order function for API middleware
+ * CRITICAL: Enforces Master Admin read-only restrictions
+ */
+export function apiMiddleware(
+  handler: (req: AuthenticatedRequest, res: NextApiResponse) => Promise<void | unknown>,
+  options: {
+    requireAuth?: boolean;
+    requireAdmin?: boolean;
+    allowedRoles?: string[];
+  } = {}
+) {
+  return async (req: AuthenticatedRequest, res: NextApiResponse) => {
+    try {
+      // Check authentication if required
+      if (options.requireAuth || options.requireAdmin || options.allowedRoles) {
+        const auth = await requireAuth(req, res);
+        if (!auth) return; // Response already sent
+
+        req.userId = auth.userId;
+        req.userRole = auth.userRole;
+        req.userEmail = auth.userEmail;
+
+        // CRITICAL: Block Master Admin mutations for ALL authenticated routes
+        if (blockMasterAdminMutations(req, res, auth.userRole)) {
+          return; // Response already sent (403 Forbidden)
+        }
+
+        // Check admin requirement
+        if (options.requireAdmin) {
+          const isAdmin = await agentPermissionsService.isAdmin(auth.userId);
+          if (!isAdmin) {
+            return res.status(403).json({ error: "Forbidden - Admin access required" });
+          }
+          
+          // For backward compatibility with some services that might check req.adminId
+          (req as any).adminId = auth.userId;
+        }
+
+        // Check specific allowed roles
+        if (options.allowedRoles && options.allowedRoles.length > 0) {
+          if (!options.allowedRoles.includes(auth.userRole)) {
+            return res.status(403).json({ 
+              error: "Forbidden - Insufficient permissions",
+              details: `Required one of: ${options.allowedRoles.join(", ")}`
+            });
+          }
+        }
+      }
+
+      // Execute handler
+      await handler(req, res);
+    } catch (error) {
+      console.error("API Middleware Error:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  };
+}
+
+/**
+ * Convenience wrapper for authenticated routes
+ */
+export const withAuth = (handler: (req: AuthenticatedRequest, res: NextApiResponse) => Promise<void | unknown>) => 
+  apiMiddleware(handler, { requireAuth: true });

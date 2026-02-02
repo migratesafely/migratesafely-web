@@ -1,231 +1,287 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
+import { authService } from "@/services/authService";
+import { tierBonusApprovalService } from "@/services/tierBonusApprovalService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Shield, 
-  Users, 
-  MessageSquare, 
-  AlertTriangle, 
-  Award,
-  Building2,
-  UserCheck,
-  Settings,
-  FileText
-} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, Shield, Users, FileText, AlertCircle, Award, AlertTriangle, TrendingUp, Globe } from "lucide-react";
+import Head from "next/head";
 import Link from "next/link";
-
-interface DashboardStats {
-  pendingScamReports: number;
-  pendingAgentRequests: number;
-  pendingIdentityVerifications: number;
-  unreadMessages: number;
-}
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [stats, setStats] = useState<DashboardStats>({
-    pendingScamReports: 0,
-    pendingAgentRequests: 0,
-    pendingIdentityVerifications: 0,
-    unreadMessages: 0,
-  });
+  const [profile, setProfile] = useState<any>(null);
+  const [pendingTierBonusCount, setPendingTierBonusCount] = useState(0);
+  const [canApprove, setCanApprove] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
   }, []);
 
   async function checkAdminAccess() {
-    const { data: { session } } = await supabase.auth.getSession();
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        router.push("/admin/login");
+        return;
+      }
 
-    if (!session) {
+      const profile = await authService.getUserProfile(user.id);
+      if (!profile) {
+        router.push("/admin/login");
+        return;
+      }
+
+      if (!authService.isAdmin(profile.role)) {
+        router.push("/");
+        return;
+      }
+
+      setProfile(profile);
+      
+      // Check if user can approve tier bonuses (Manager Admin or Super Admin)
+      const canApproveFlag = authService.isManagerAdmin(profile.role) || authService.isSuperAdmin(profile.role);
+      setCanApprove(canApproveFlag);
+
+      // Load pending tier bonus approvals count (only for Manager/Super Admin)
+      if (canApproveFlag) {
+        await loadPendingTierBonusCount();
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error("Error checking admin access:", error);
       router.push("/admin/login");
-      return;
     }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (!profile || !["worker_admin", "manager_admin", "super_admin"].includes(profile.role || "")) {
-      router.push("/admin/login");
-      return;
-    }
-
-    setUserRole(profile.role);
-    await fetchDashboardStats();
-    setLoading(false);
   }
 
-  async function fetchDashboardStats() {
+  async function loadPendingTierBonusCount() {
     try {
-      // Fetch pending scam reports
-      const { count: scamCount } = await supabase
-        .from("scammer_reports")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "submitted");
-
-      // Fetch pending agent requests
-      const { count: agentCount } = await supabase
-        .from("agent_requests")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
-
-      // Fetch pending identity verifications
-      const { count: identityCount } = await supabase
-        .from("identity_verifications")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
-
-      setStats({
-        pendingScamReports: scamCount || 0,
-        pendingAgentRequests: agentCount || 0,
-        pendingIdentityVerifications: identityCount || 0,
-        unreadMessages: 0,
-      });
+      const approvals = await tierBonusApprovalService.getPendingApprovals();
+      setPendingTierBonusCount(approvals.length);
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error);
+      console.error("Error loading pending tier bonus count:", error);
     }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading admin dashboard...</p>
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground">Loading admin dashboard...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  const adminModules = [
-    {
-      title: "Scam Reports",
-      description: "Review and verify reported scams",
-      icon: AlertTriangle,
-      href: "/admin/scam-reports",
-      badge: stats.pendingScamReports,
-      roles: ["worker_admin", "manager_admin", "super_admin"],
-    },
-    {
-      title: "Agent Requests",
-      description: "Manage agent applications",
-      icon: Users,
-      href: "/admin/agent-requests",
-      badge: stats.pendingAgentRequests,
-      roles: ["worker_admin", "manager_admin", "super_admin"],
-    },
-    {
-      title: "Identity Verifications",
-      description: "Approve identity documents",
-      icon: UserCheck,
-      href: "/admin/identity-verifications",
-      badge: stats.pendingIdentityVerifications,
-      roles: ["worker_admin", "manager_admin", "super_admin"],
-    },
-    {
-      title: "Prize Draws",
-      description: "Manage prize draws and winners",
-      icon: Award,
-      href: "/admin/prize-draws",
-      badge: 0,
-      roles: ["worker_admin", "manager_admin", "super_admin"],
-    },
-    {
-      title: "Messages",
-      description: "Broadcast messages to members",
-      icon: MessageSquare,
-      href: "/admin/messages",
-      badge: 0,
-      roles: ["worker_admin", "manager_admin", "super_admin"],
-    },
-    {
-      title: "Embassies",
-      description: "Manage embassy directory",
-      icon: Building2,
-      href: "/admin/embassies",
-      badge: 0,
-      roles: ["worker_admin", "manager_admin", "super_admin"],
-    },
-    {
-      title: "Q&A System",
-      description: "Manage questions and answers",
-      icon: FileText,
-      href: "/admin/qa",
-      badge: 0,
-      roles: ["worker_admin", "manager_admin", "super_admin"],
-    },
-    {
-      title: "People Search",
-      description: "Search and manage users",
-      icon: Users,
-      href: "/admin/people",
-      badge: 0,
-      roles: ["worker_admin", "manager_admin", "super_admin"],
-    },
-    {
-      title: "Compliance Settings",
-      description: "Configure system settings",
-      icon: Settings,
-      href: "/admin/compliance-settings",
-      badge: 0,
-      roles: ["super_admin"],
-    },
-  ];
-
-  const visibleModules = adminModules.filter((module) =>
-    module.roles.includes(userRole || "")
-  );
-
   return (
-    <div className="min-h-screen bg-background">
-      <AppHeader />
-      <main className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="h-8 w-8 text-blue-600" />
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Role: <span className="font-semibold capitalize">{userRole?.replace("_", " ")}</span>
-          </p>
-        </div>
+    <>
+      <Head>
+        <title>Admin Dashboard | Migrate Safely</title>
+      </Head>
+      <div className="min-h-screen bg-background">
+        <AppHeader />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleModules.map((module) => {
-            const Icon = module.icon;
-            return (
-              <Link key={module.href} href={module.href}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <Icon className="h-6 w-6 text-blue-600" />
-                      </div>
-                      {module.badge > 0 && (
-                        <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">
-                          {module.badge}
-                        </span>
-                      )}
-                    </div>
-                    <CardTitle className="mt-4">{module.title}</CardTitle>
-                    <CardDescription>{module.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button variant="outline" className="w-full">
-                      Open Module
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+              <p className="text-muted-foreground mt-2">
+                Welcome back, {profile?.full_name || profile?.email}
+              </p>
+              <Badge variant="outline" className="mt-2">
+                <Shield className="h-3 w-3 mr-1" />
+                {profile?.role.replace(/_/g, " ").toUpperCase()}
+              </Badge>
+            </div>
+
+            {/* URGENT: Pending Tier Bonus Approvals Notification */}
+            {canApprove && pendingTierBonusCount > 0 && (
+              <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
+                <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <AlertDescription className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-orange-900 dark:text-orange-100 text-lg">
+                      URGENT: Pending Tier Bonus Approvals
+                    </p>
+                    <p className="text-orange-800 dark:text-orange-200 mt-1">
+                      {pendingTierBonusCount} tier bonus approval{pendingTierBonusCount !== 1 ? "s" : ""} waiting for review. 
+                      Members are waiting for their loyalty tier rewards to be processed.
+                    </p>
+                  </div>
+                  <Link href="/admin/tier-bonus-approvals">
+                    <Button className="ml-4 bg-orange-600 hover:bg-orange-700 text-white">
+                      <Award className="h-4 w-4 mr-2" />
+                      Review Now ({pendingTierBonusCount})
                     </Button>
-                  </CardContent>
+                  </Link>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <Link href="/admin/scam-reports">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-red-600" />
+                      Scam Report Review
+                    </CardTitle>
+                    <CardDescription>Review and verify reported scams</CardDescription>
+                  </CardHeader>
                 </Card>
               </Link>
-            );
-          })}
-        </div>
-      </main>
-    </div>
+
+              {/* Tier Bonus Approvals - Manager Admin & Super Admin Only */}
+              {canApprove && (
+                <Link href="/admin/tier-bonus-approvals">
+                  <Card className="cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-orange-500">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            <Award className="h-5 w-5 text-orange-600" />
+                            Tier Bonus Approvals
+                          </CardTitle>
+                          <CardDescription>Review loyalty tier bonus requests</CardDescription>
+                        </div>
+                        {pendingTierBonusCount > 0 && (
+                          <Badge variant="destructive" className="ml-2">
+                            {pendingTierBonusCount}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {pendingTierBonusCount > 0 ? (
+                        <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-sm font-semibold">
+                            {pendingTierBonusCount} pending approval{pendingTierBonusCount !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No pending approvals</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              )}
+
+              {/* Tier Achievement Config - Super Admin Only */}
+              {profile?.role === "super_admin" && (
+                <Link href="/admin/tier-achievement-config">
+                  <Card className="cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-purple-500">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-purple-600" />
+                        Tier Achievement Config
+                      </CardTitle>
+                      <CardDescription>Manage tier achievement bonus amounts</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Configure one-time lump-sum bonuses per tier
+                      </p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )}
+
+              {/* Tier Achievement Approvals - Manager Admin & Super Admin */}
+              {canApprove && (
+                <Link href="/admin/tier-achievement-approvals">
+                  <Card className="cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Award className="h-5 w-5 text-green-600" />
+                        Tier Achievement Approvals
+                      </CardTitle>
+                      <CardDescription>Review one-time tier achievement bonuses</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Approve lump-sum bonuses for tier achievements
+                      </p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              )}
+
+              <Link href="/admin/prize-draws">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-green-600" />
+                      Prize Draws
+                    </CardTitle>
+                    <CardDescription>Manage and schedule prize draws</CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+
+              <Link href="/admin/reports">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      Admin Reports
+                    </CardTitle>
+                    <CardDescription>Generate and view admin reports</CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+
+              {/* System Settings - Super Admin Only */}
+              {profile?.role === "super_admin" && (
+                <Link href="/admin/system-settings">
+                  <Card className="cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-purple-500">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-purple-600" />
+                        System Settings
+                      </CardTitle>
+                      <CardDescription>Configure global system settings</CardDescription>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              )}
+
+              <Link href="/admin/deployment-info">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="h-5 w-5 text-blue-600" />
+                      Deployment Info
+                    </CardTitle>
+                    <CardDescription>View country and currency configuration</CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+
+              <Link href="/admin/document-verifications">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-purple-600" />
+                      Document Verifications
+                    </CardTitle>
+                    <CardDescription>Review ticket-based document requests</CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    </>
   );
 }

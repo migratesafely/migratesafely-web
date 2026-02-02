@@ -30,6 +30,293 @@ interface PrizePoolEstimate {
   forecastMemberCount: number;
 }
 
+/**
+ * A5: Deduct prize amount from sub-pool (Random or Community)
+ */
+export async function deductPrizeFromSubPool(
+  prizeId: string,
+  subPoolType: "random" | "community",
+  prizeAmount: number,
+  countryCode: string = "BD"
+) {
+  try {
+    const { data, error } = await supabase.rpc("deduct_prize_from_sub_pool", {
+      p_prize_id: prizeId,
+      p_sub_pool_type: subPoolType,
+      p_prize_amount: prizeAmount,
+      p_country_code: countryCode
+    });
+
+    if (error) throw error;
+
+    const result = data as any;
+    
+    if (!result.success) {
+      throw new Error(result.error || "Failed to deduct from sub-pool");
+    }
+
+    return {
+      success: true,
+      previousBalance: result.previous_balance,
+      deductedAmount: result.deducted_amount,
+      newBalance: result.new_balance,
+      subPoolType: result.sub_pool_type
+    };
+  } catch (error: any) {
+    console.error("Error deducting from sub-pool:", error);
+    throw new Error(error.message || "Failed to deduct prize from sub-pool");
+  }
+}
+
+/**
+ * A5: Check if draw is within fairness lock period (1 hour before draw time)
+ */
+export async function checkDrawFairnessLock(drawId: string) {
+  try {
+    const { data: draw, error } = await supabase
+      .from("prize_draws")
+      .select("draw_date, draw_time, entry_cutoff_time, fairness_locked, status")
+      .eq("id", drawId)
+      .single();
+
+    if (error) throw error;
+    if (!draw) throw new Error("Prize draw not found");
+
+    const now = new Date();
+    const cutoffTime = draw.entry_cutoff_time ? new Date(draw.entry_cutoff_time) : null;
+
+    return {
+      isLocked: draw.fairness_locked || (cutoffTime && now >= cutoffTime) || false,
+      cutoffTime: cutoffTime,
+      status: draw.status,
+      canEnter: !draw.fairness_locked && (!cutoffTime || now < cutoffTime) && draw.status === "active"
+    };
+  } catch (error: any) {
+    console.error("Error checking fairness lock:", error);
+    throw error;
+  }
+}
+
+/**
+ * A5: Generate immutable draw report after execution
+ */
+export async function generateDrawReport(
+  drawId: string,
+  executedBy?: string,
+  autoExecuted: boolean = false
+) {
+  try {
+    const { data, error } = await supabase.rpc("generate_draw_report", {
+      p_draw_id: drawId,
+      p_executed_by: executedBy || null,
+      p_auto_executed: autoExecuted
+    });
+
+    if (error) throw error;
+
+    const result = data as any;
+    
+    if (!result.success) {
+      throw new Error(result.error || "Failed to generate draw report");
+    }
+
+    return {
+      success: true,
+      reportId: result.report_id,
+      totalPrizeAmount: result.total_prize_amount,
+      totalAwarded: result.total_awarded,
+      leftoverAmount: result.leftover_amount,
+      totalWinners: result.total_winners,
+      reportSignature: result.report_signature
+    };
+  } catch (error: any) {
+    console.error("Error generating draw report:", error);
+    throw new Error(error.message || "Failed to generate draw report");
+  }
+}
+
+/**
+ * A5: Queue automated notifications for winners
+ */
+export async function queueWinnerNotifications(drawId: string) {
+  try {
+    const { data, error } = await supabase.rpc("queue_winner_notifications", {
+      p_draw_id: drawId
+    });
+
+    if (error) throw error;
+
+    const result = data as any;
+    
+    if (!result.success) {
+      throw new Error(result.error || "Failed to queue notifications");
+    }
+
+    return {
+      success: true,
+      notificationsQueued: result.notifications_queued
+    };
+  } catch (error: any) {
+    console.error("Error queueing notifications:", error);
+    throw new Error(error.message || "Failed to queue winner notifications");
+  }
+}
+
+/**
+ * A5: Get draw report by ID (admin only)
+ */
+export async function getDrawReport(drawId: string) {
+  try {
+    const { data, error } = await supabase
+      .from("prize_draw_reports")
+      .select("*")
+      .eq("draw_id", drawId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching draw report:", error);
+    throw error;
+  }
+}
+
+/**
+ * A5: Get all draw reports (admin only)
+ */
+export async function getAllDrawReports(countryCode: string = "BD", limit: number = 50) {
+  try {
+    const { data, error } = await supabase
+      .from("prize_draw_reports")
+      .select("*")
+      .eq("country_code", countryCode)
+      .order("execution_timestamp", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error: any) {
+    console.error("Error fetching draw reports:", error);
+    throw error;
+  }
+}
+
+/**
+ * Manually trigger draw execution (admin fallback)
+ * Used when automatic execution fails or for testing
+ */
+export async function manuallyExecuteDraw(drawId: string): Promise<{
+  success: boolean;
+  error?: string;
+  winnersSelected?: number;
+  totalAwarded?: number;
+}> {
+  try {
+    // Validate execution safety
+    const { data: safetyCheck, error: safetyError } = await supabase.rpc(
+      "validate_draw_execution_safety",
+      { p_draw_id: drawId }
+    );
+
+    if (safetyError) {
+      return { success: false, error: safetyError.message };
+    }
+
+    const checkResult = safetyCheck as { safe: boolean; error?: string };
+    if (!checkResult.safe) {
+      return { success: false, error: checkResult.error };
+    }
+
+    // Call Edge Function to execute draw
+    const { data, error } = await supabase.functions.invoke(
+      "execute-scheduled-draws",
+      {
+        body: { manualDrawId: drawId }
+      }
+    );
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      winnersSelected: data?.winnersSelected || 0,
+      totalAwarded: data?.totalAwarded || 0
+    };
+  } catch (error: any) {
+    console.error("Error manually executing draw:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get draws ready for execution (monitoring)
+ */
+export async function getDrawsReadyForExecution(): Promise<any[]> {
+  try {
+    const { data, error } = await supabase.rpc("get_draws_ready_for_execution");
+
+    if (error) {
+      console.error("Error getting draws ready for execution:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error("Error getting draws ready for execution:", error);
+    return [];
+  }
+}
+
+/**
+ * Get execution status for a draw
+ */
+export async function getDrawExecutionStatus(drawId: string): Promise<{
+  status: string;
+  executedAt?: string;
+  winnersSelected?: number;
+  totalAwarded?: number;
+  leftoverAmount?: number;
+}> {
+  try {
+    const { data: draw, error } = await supabase
+      .from("prize_draws")
+      .select("status, executed_at, leftover_amount")
+      .eq("id", drawId)
+      .single();
+
+    if (error) throw error;
+
+    // Get winner count
+    const { data: winners, error: winnersError } = await supabase
+      .from("prize_draw_winners")
+      .select("id, prize:prize_draw_prizes!prize_draw_winners_prize_id_fkey(prize_value_amount)")
+      .eq("draw_id", drawId);
+
+    if (winnersError) throw winnersError;
+
+    const winnersSelected = winners?.length || 0;
+    
+    // Calculate total awarded from prize amounts
+    const totalAwarded = winners?.reduce((sum, w: any) => {
+      const prizeAmount = w.prize?.prize_value_amount || 0;
+      return sum + prizeAmount;
+    }, 0) || 0;
+
+    return {
+      status: draw.status,
+      executedAt: draw.executed_at || undefined,
+      winnersSelected,
+      totalAwarded,
+      leftoverAmount: draw.leftover_amount || undefined
+    };
+  } catch (error: any) {
+    console.error("Error getting draw execution status:", error);
+    return { status: "unknown" };
+  }
+}
+
 export const prizeDrawService = {
   /**
    * Get active or upcoming prize draw for a country
