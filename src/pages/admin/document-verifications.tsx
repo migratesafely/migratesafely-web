@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { documentVerificationService, AdminDocumentVerificationRequest } from "@/services/documentVerificationService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,14 +36,14 @@ export default function AdminDocumentVerificationsPage() {
   const [adminRole, setAdminRole] = useState("");
 
   useEffect(() => {
-    checkAdminAccess();
+    checkAccess();
   }, []);
 
   useEffect(() => {
     filterRequests();
   }, [requests, filterStatus, searchTerm]);
 
-  async function checkAdminAccess() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
@@ -52,7 +52,7 @@ export default function AdminDocumentVerificationsPage() {
       }
 
       const profile = await authService.getUserProfile(user.id);
-      if (!profile || !["worker_admin", "manager_admin", "super_admin"].includes(profile.role)) {
+      if (!profile || !["worker_admin", "manager_admin", "chairman"].includes(profile.role)) {
         router.push("/");
         return;
       }
@@ -60,8 +60,8 @@ export default function AdminDocumentVerificationsPage() {
       setAdminRole(profile.role);
       await loadRequests();
     } catch (error) {
-      console.error("Error checking admin access:", error);
-      router.push("/admin/login");
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 
@@ -139,7 +139,7 @@ export default function AdminDocumentVerificationsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -156,7 +156,7 @@ export default function AdminDocumentVerificationsPage() {
         <title>Document Verifications | Admin Portal</title>
       </Head>
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-6">

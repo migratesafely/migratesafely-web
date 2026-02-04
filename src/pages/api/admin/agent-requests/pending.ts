@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { agentRequestService } from "@/services/agentRequestService";
 
 export default async function handler(
@@ -10,25 +12,15 @@ export default async function handler(
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError || !session) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return res.status(401).json({ success: false, error: "Profile not found" });
-    }
-
-    if (!["super_admin", "manager_admin"].includes(profile.role)) {
-      return res.status(403).json({ success: false, error: "Admin access required" });
+    // Only Chairman can view agent requests
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     const result = await agentRequestService.listPendingRequestsForAdmin();

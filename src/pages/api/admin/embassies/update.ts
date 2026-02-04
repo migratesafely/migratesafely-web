@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 export default async function handler(
   req: NextApiRequest,
@@ -9,7 +12,17 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
+    // Only Chairman can update embassies
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
+    }
+
     // Get current user session
     const authHeader = req.headers.authorization;
     if (!authHeader) {

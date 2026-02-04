@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -129,10 +129,10 @@ export default function AdminPrizeDrawsPage() {
   const [currentAdminId, setCurrentAdminId] = useState<string>("");
 
   useEffect(() => {
-    checkAdminAndLoadData();
+    checkAccess();
   }, []);
 
-  async function checkAdminAndLoadData() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
 
@@ -147,8 +147,15 @@ export default function AdminPrizeDrawsPage() {
         .eq("id", user.id)
         .single();
 
-      if (profileError || !profile || profile.role !== "super_admin") {
-        setErrorMessage("Forbidden: Super Admin access required");
+      // Check employee role for Chairman
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (employee?.role_category !== "chairman") {
+        setErrorMessage("Forbidden: Chairman access required");
         setLoading(false);
         return;
       }
@@ -160,9 +167,8 @@ export default function AdminPrizeDrawsPage() {
       await loadPrizePoolBalance();
       setLoading(false);
     } catch (error) {
-      console.error("Error checking admin:", error);
-      setErrorMessage("Error loading page");
-      setLoading(false);
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 
@@ -671,7 +677,7 @@ export default function AdminPrizeDrawsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -685,7 +691,7 @@ export default function AdminPrizeDrawsPage() {
   if (errorMessage && !draws.length) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <Alert variant="destructive">
             <AlertDescription>{errorMessage}</AlertDescription>
@@ -697,7 +703,7 @@ export default function AdminPrizeDrawsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <MainHeader />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="space-y-8">
           <div>

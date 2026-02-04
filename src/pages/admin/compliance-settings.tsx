@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { MainHeader } from "@/components/MainHeader";
 
 interface ComplianceSettings {
   id: string;
@@ -34,10 +35,10 @@ export default function AdminComplianceSettings() {
   const [displayOnHome, setDisplayOnHome] = useState(true);
 
   useEffect(() => {
-    checkAuthAndLoadSettings();
+    checkAccess();
   }, []);
 
-  async function checkAuthAndLoadSettings() {
+  async function checkAccess() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -52,15 +53,22 @@ export default function AdminComplianceSettings() {
         .eq("id", user.id)
         .single();
 
-      if (profile?.role !== "super_admin") {
+      // Check employee role for Chairman
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (employee?.role_category !== "chairman") {
         router.push("/dashboard");
         return;
       }
 
       await loadSettings();
     } catch (error) {
-      console.error("Auth check error:", error);
-      router.push("/dashboard");
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 

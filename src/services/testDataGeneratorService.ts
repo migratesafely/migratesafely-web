@@ -91,7 +91,7 @@ export class TestDataGeneratorService {
         entity_type: "system",
         performed_by: (await supabase.auth.getUser()).data.user?.id,
         details: "Test data generation completed",
-        new_values: { test_mode: true, action: "test_data_generated", timestamp: new Date().toISOString() } as any
+        new_values: stats,
       } as any);
 
       return {

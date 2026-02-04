@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 type AdminWithCreator = {
   id: string;
@@ -63,11 +66,11 @@ export default async function handler(
       return res.status(403).json({ error: "Forbidden: Profile not found" });
     }
 
-    // Only super_admin and manager_admin can list admins
-    if (!["super_admin", "manager_admin"].includes(profile.role || "")) {
-      return res.status(403).json({
-        error: "Forbidden: Only super_admin and manager_admin can list admins",
-      });
+    // AUTHORITY: Chairman only
+    const isChairman = await agentPermissionsService.isChairman(user.id);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Fetch all admin profiles

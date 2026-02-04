@@ -1,11 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { agentPermissionsService } from "@/services/agentPermissionsService";
+import { nowBDISO, formatBDTime } from "@/lib/bdTime";
 
 /**
  * API Middleware for role-based access control
  * Enforces permission boundaries for agents and admins
  * CRITICAL: MASTER_ADMIN is READ-ONLY - blocks all mutations
+ * 
+ * ⚠️ TIME AUTHORITY: All timestamps use Bangladesh time (Asia/Dhaka)
+ * ⚠️ FORBIDDEN: Do not use new Date() - use nowBD() utilities only
  */
 
 export interface AuthenticatedRequest extends NextApiRequest {
@@ -15,112 +19,107 @@ export interface AuthenticatedRequest extends NextApiRequest {
   adminId?: string;
 }
 
+export interface AuthResult {
+  isBlocked: boolean;
+  auth?: {
+    userId: string;
+    userEmail: string;
+    userRole?: string;
+  };
+}
+
 /**
- * Verify user is authenticated
+ * Verify user is authenticated and is an admin
+ * 
+ * AUTHORITY MODEL:
+ * - Chairman (employees.role_category = 'chairman') has absolute operational authority
+ * - master_admin is emergency-only (hidden from operations)
+ * - LEGACY: profiles.role = 'super_admin' is DEPRECATED and UNUSED
  */
 export async function requireAuth(
   req: NextApiRequest,
   res: NextApiResponse
-): Promise<{ userId: string; userRole: string; userEmail: string } | null> {
-  try {
-    // Get session from Authorization header
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      res.status(401).json({ error: "Unauthorized - No token provided" });
-      return null;
+): Promise<AuthResult> {
+  const timestamp = formatBDTime();
+  
+  // Use authorization header for API routes
+  const token = req.headers.authorization?.split(" ")[1];
+  
+  let user = null;
+  
+  if (token) {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (!error && data.user) {
+      user = data.user;
+      console.log(`[${timestamp}] Auth token validated for user: ${user.email}`);
     }
-
-    const token = authHeader.substring(7);
-    
-    // Verify token with Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      res.status(401).json({ error: "Unauthorized - Invalid token" });
-      return null;
+  } else {
+    // Fallback to session check if available (e.g. cookies)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      user = session.user;
+      console.log(`[${timestamp}] Session validated for user: ${user.email}`);
     }
+  }
 
-    // Get user profile to check role
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role, email")
-      .eq("id", user.id)
-      .single();
+  if (!user) {
+    console.warn(`[${timestamp}] Unauthorized API request to: ${req.url}`);
+    res.status(401).json({ error: "Unauthorized - Please log in" });
+    return { isBlocked: true };
+  }
 
-    if (profileError || !profile) {
-      res.status(401).json({ error: "Unauthorized - Profile not found" });
-      return null;
-    }
+  // Check if user is admin
+  const isAdmin = await agentPermissionsService.isAdmin(user.id);
 
-    return {
+  if (!isAdmin) {
+    console.warn(`[${timestamp}] Forbidden API access attempt by: ${user.email} to: ${req.url}`);
+    res.status(403).json({
+      error: "Forbidden - Admin access required",
+    });
+    return { isBlocked: true };
+  }
+
+  // Get user role for context
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const userRole = profile?.role || "unknown";
+
+  return {
+    isBlocked: false,
+    auth: {
       userId: user.id,
-      userRole: profile.role || "member",
-      userEmail: profile.email || user.email || "",
-    };
-  } catch (error) {
-    console.error("Error in requireAuth:", error);
-    res.status(500).json({ error: "Internal server error" });
-    return null;
-  }
-}
-
-/**
- * CRITICAL: Block MASTER_ADMIN from all mutation operations
- * Master Admin is READ-ONLY - can only view data, never modify
- */
-function blockMasterAdminMutations(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  userRole: string
-): boolean {
-  if (userRole === "master_admin") {
-    // Allow only GET requests (read-only)
-    if (req.method !== "GET") {
-      res.status(403).json({
-        error: "Forbidden - Master Admin access is read-only",
-        details: "Master Admin cannot create, update, or delete data. This role is for oversight and auditing only.",
-        allowedMethods: ["GET"],
-        blockedMethod: req.method,
-      });
-      return true; // Blocked
-    }
-  }
-  return false; // Not blocked
+      userEmail: user.email || "",
+      userRole
+    },
+  };
 }
 
 /**
  * Require admin role - blocks agents and members
- * CRITICAL: Also enforces Master Admin read-only restrictions
  */
 export async function requireAdminRole(
   req: NextApiRequest,
   res: NextApiResponse
 ): Promise<{ userId: string; userRole: string; userEmail: string } | null> {
-  const auth = await requireAuth(req, res);
+  const authResult = await requireAuth(req, res);
   
-  if (!auth) {
+  if (authResult.isBlocked || !authResult.auth) {
     return null;
   }
 
-  // CRITICAL: Block Master Admin mutations before other checks
-  if (blockMasterAdminMutations(req, res, auth.userRole)) {
-    return null;
-  }
-
-  // Check if user is admin
-  const isAdmin = await agentPermissionsService.isAdmin(auth.userId);
+  // Double check admin permission (redundant but safe)
+  const isAdmin = await agentPermissionsService.isAdmin(authResult.auth.userId);
 
   if (!isAdmin) {
     // Log violation
     await agentPermissionsService.logPermissionViolation(
-      auth.userId,
+      authResult.auth.userId,
       "ADMIN_API_ACCESS",
       {
         endpoint: req.url,
         method: req.method,
-        role: auth.userRole,
+        role: authResult.auth.userRole,
         reason: "Non-admin attempted to access admin API endpoint",
+        timestamp: formatBDTime()
       },
       getClientIp(req),
       req.headers["user-agent"]
@@ -133,7 +132,11 @@ export async function requireAdminRole(
     return null;
   }
 
-  return auth;
+  return {
+    userId: authResult.auth.userId,
+    userRole: authResult.auth.userRole || "unknown",
+    userEmail: authResult.auth.userEmail
+  };
 }
 
 /**
@@ -143,30 +146,45 @@ export async function requireAgentRole(
   req: NextApiRequest,
   res: NextApiResponse
 ): Promise<{ userId: string; userRole: string; userEmail: string } | null> {
-  const auth = await requireAuth(req, res);
+  const timestamp = formatBDTime();
   
-  if (!auth) {
+  // Basic auth check
+  const token = req.headers.authorization?.split(" ")[1];
+  let user = null;
+  
+  if (token) {
+    const { data } = await supabase.auth.getUser(token);
+    user = data.user;
+  } else {
+    const { data: { session } } = await supabase.auth.getSession();
+    user = session?.user;
+  }
+
+  if (!user) {
+    console.warn(`[${timestamp}] Unauthorized agent API request to: ${req.url}`);
+    res.status(401).json({ error: "Unauthorized" });
     return null;
   }
 
   // Check if user is approved agent
-  const isAgent = await agentPermissionsService.isApprovedAgent(auth.userId);
+  const isAgent = await agentPermissionsService.isApprovedAgent(user.id);
 
   if (!isAgent) {
     // Log violation
     await agentPermissionsService.logPermissionViolation(
-      auth.userId,
+      user.id,
       "AGENT_API_ACCESS",
       {
         endpoint: req.url,
         method: req.method,
-        role: auth.userRole,
         reason: "Non-agent attempted to access agent API endpoint",
+        timestamp
       },
       getClientIp(req),
       req.headers["user-agent"]
     );
 
+    console.warn(`[${timestamp}] Forbidden agent API access by: ${user.email} to: ${req.url}`);
     res.status(403).json({ 
       error: "Forbidden - Approved agent access required",
       details: "Only approved agents can access this endpoint" 
@@ -174,7 +192,11 @@ export async function requireAgentRole(
     return null;
   }
 
-  return auth;
+  return {
+    userId: user.id,
+    userRole: "agent",
+    userEmail: user.email || ""
+  };
 }
 
 /**
@@ -184,30 +206,45 @@ export async function requireAdminOrAgent(
   req: NextApiRequest,
   res: NextApiResponse
 ): Promise<{ userId: string; userRole: string; userEmail: string; isAdmin: boolean; isAgent: boolean } | null> {
-  const auth = await requireAuth(req, res);
+  const timestamp = formatBDTime();
   
-  if (!auth) {
+  // Basic auth check
+  const token = req.headers.authorization?.split(" ")[1];
+  let user = null;
+  
+  if (token) {
+    const { data } = await supabase.auth.getUser(token);
+    user = data.user;
+  } else {
+    const { data: { session } } = await supabase.auth.getSession();
+    user = session?.user;
+  }
+
+  if (!user) {
+    console.warn(`[${timestamp}] Unauthorized protected API request to: ${req.url}`);
+    res.status(401).json({ error: "Unauthorized" });
     return null;
   }
 
-  const isAdmin = await agentPermissionsService.isAdmin(auth.userId);
-  const isAgent = await agentPermissionsService.isApprovedAgent(auth.userId);
+  const isAdmin = await agentPermissionsService.isAdmin(user.id);
+  const isAgent = await agentPermissionsService.isApprovedAgent(user.id);
 
   if (!isAdmin && !isAgent) {
     // Log violation
     await agentPermissionsService.logPermissionViolation(
-      auth.userId,
+      user.id,
       "PROTECTED_API_ACCESS",
       {
         endpoint: req.url,
         method: req.method,
-        role: auth.userRole,
         reason: "Unauthorized user attempted to access protected endpoint",
+        timestamp
       },
       getClientIp(req),
       req.headers["user-agent"]
     );
 
+    console.warn(`[${timestamp}] Forbidden protected API access by: ${user.email} to: ${req.url}`);
     res.status(403).json({ 
       error: "Forbidden - Admin or agent access required",
       details: "Only administrators and approved agents can access this endpoint" 
@@ -216,7 +253,9 @@ export async function requireAdminOrAgent(
   }
 
   return {
-    ...auth,
+    userId: user.id,
+    userRole: isAdmin ? "admin" : "agent",
+    userEmail: user.email || "",
     isAdmin,
     isAgent,
   };
@@ -258,7 +297,6 @@ export async function checkPermission(
 
 /**
  * Higher-order function for API middleware
- * CRITICAL: Enforces Master Admin read-only restrictions
  */
 export function apiMiddleware(
   handler: (req: AuthenticatedRequest, res: NextApiResponse) => Promise<void | unknown>,
@@ -272,37 +310,41 @@ export function apiMiddleware(
     try {
       // Check authentication if required
       if (options.requireAuth || options.requireAdmin || options.allowedRoles) {
-        const auth = await requireAuth(req, res);
-        if (!auth) return; // Response already sent
+        const authResult = await requireAuth(req, res);
+        if (authResult.isBlocked || !authResult.auth) return; // Response already sent
 
-        req.userId = auth.userId;
-        req.userRole = auth.userRole;
-        req.userEmail = auth.userEmail;
-
-        // CRITICAL: Block Master Admin mutations for ALL authenticated routes
-        if (blockMasterAdminMutations(req, res, auth.userRole)) {
-          return; // Response already sent (403 Forbidden)
-        }
+        req.userId = authResult.auth.userId;
+        req.userRole = authResult.auth.userRole;
+        req.userEmail = authResult.auth.userEmail;
 
         // Check admin requirement
         if (options.requireAdmin) {
-          const isAdmin = await agentPermissionsService.isAdmin(auth.userId);
+          const isAdmin = await agentPermissionsService.isAdmin(authResult.auth.userId);
           if (!isAdmin) {
             return res.status(403).json({ error: "Forbidden - Admin access required" });
           }
           
-          // For backward compatibility with some services that might check req.adminId
-          (req as any).adminId = auth.userId;
+          // For backward compatibility
+          (req as any).adminId = authResult.auth.userId;
         }
 
         // Check specific allowed roles
+        // NOTE: If using role_category (employees), this profile-based role check might need adjustment if passed roles are 'chairman' etc.
         if (options.allowedRoles && options.allowedRoles.length > 0) {
-          if (!options.allowedRoles.includes(auth.userRole)) {
-            return res.status(403).json({ 
-              error: "Forbidden - Insufficient permissions",
-              details: `Required one of: ${options.allowedRoles.join(", ")}`
-            });
-          }
+           // For now, assuming allowedRoles checks profiles.role or 'admin' 
+           // If we want to check employee roles, we need to fetch employee role
+           if (!options.allowedRoles.includes(authResult.auth.userRole || "")) {
+             // Fallback: check if Chairman is allowed
+             const isChair = await agentPermissionsService.isChairman(authResult.auth.userId);
+             if (isChair && options.allowedRoles.includes("chairman")) {
+                // Allowed
+             } else {
+                return res.status(403).json({ 
+                  error: "Forbidden - Insufficient permissions",
+                  details: `Required one of: ${options.allowedRoles.join(", ")}`
+                });
+             }
+           }
         }
       }
 

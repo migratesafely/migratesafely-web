@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function PrivacyPolicyPage() {
@@ -29,7 +29,7 @@ export default function PrivacyPolicyPage() {
       </Head>
 
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         {/* Hero Section */}
         <section className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 py-16">

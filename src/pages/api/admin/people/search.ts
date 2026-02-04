@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 interface SearchResult {
   userId: string;

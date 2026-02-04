@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -273,7 +273,7 @@ export default function ExpenseApprovalsPage() {
   if (loading) {
     return (
       <>
-        <AppHeader />
+        <MainHeader />
         <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
           <div className="container max-w-7xl mx-auto px-4 py-8">
             <div className="text-center">Loading...</div>
@@ -286,7 +286,7 @@ export default function ExpenseApprovalsPage() {
   if (!userAuthorized) {
     return (
       <>
-        <AppHeader />
+        <MainHeader />
         <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
           <div className="container max-w-7xl mx-auto px-4 py-8">
             <Alert variant="destructive">
@@ -301,7 +301,7 @@ export default function ExpenseApprovalsPage() {
 
   return (
     <>
-      <AppHeader />
+      <MainHeader />
       <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
         <div className="container max-w-7xl mx-auto px-4 py-8">
           <div className="mb-6">

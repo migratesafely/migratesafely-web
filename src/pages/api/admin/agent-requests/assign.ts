@@ -4,6 +4,7 @@ import { agentRequestService } from "@/services/agentRequestService";
 import { agentRequestTimelineService } from "@/services/agentRequestTimelineService";
 import { requireAdminRole } from "@/lib/apiMiddleware";
 import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 /**
  * Assign agent to member request
@@ -23,26 +24,14 @@ export default async function handler(
   if (!auth) return; // Middleware handles rejection
 
   try {
-    const { requestId, agentId, adminNotes } = req.body;
-
-    // Strict role enforcement: Only super_admin and manager_admin can assign agents
-    if (!["super_admin", "manager_admin"].includes(auth.userRole)) {
-      // Log unauthorized attempt
-      await logAdminAction({
-        actorId: auth.userId,
-        action: "AGENT_ASSIGN_ATTEMPT_DENIED",
-        targetUserId: agentId,
-        details: {
-          attempted_role: auth.userRole,
-          reason: "Worker admins are not authorized to assign agents",
-          request_id: requestId,
-        },
-      });
-
-      return res.status(403).json({ 
-        error: "Forbidden: Only Super Admins and Manager Admins can assign agents to requests. Worker Admins do not have this authority." 
-      });
+    // Only Chairman can assign agent requests
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
+
+    const { requestId, agentId, adminNotes } = req.body;
 
     if (!requestId || !agentId) {
       return res.status(400).json({ success: false, error: "Missing required fields" });

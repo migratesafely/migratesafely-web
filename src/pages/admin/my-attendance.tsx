@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,7 +107,7 @@ export default function MyAttendancePage() {
 
   return (
     <>
-      <AppHeader />
+      <MainHeader />
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-8 flex justify-between items-center">

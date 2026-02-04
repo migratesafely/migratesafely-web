@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { AlertCircle, Upload, X, CheckCircle, FileText, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PublicPageTeaser } from "@/components/PublicPageTeaser";
+import { MainHeader } from "@/components/MainHeader";
 
 interface MemberData {
   membershipNumber: string;

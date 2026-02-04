@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 /**
  * AGENT APPROVAL AUDIT LOG ENDPOINT
@@ -28,12 +29,11 @@ export default async function handler(
   if (!auth) return;
 
   try {
-    // STRICT ACCESS CONTROL: Only super_admin and manager_admin
-    if (!["super_admin", "manager_admin"].includes(auth.userRole)) {
-      return res.status(403).json({ 
-        error: "Forbidden: Agent approval audit logs are restricted to Admin and Super Admin roles only",
-        governance_policy: "AUDIT_LOG_ACCESS_RESTRICTED"
-      });
+    // Only Chairman can view agent approval audit logs
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Get query parameters

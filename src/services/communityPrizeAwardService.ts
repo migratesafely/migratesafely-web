@@ -428,3 +428,12 @@ export async function getAllClosureReports(limit: number = 50): Promise<{
     };
   }
 }
+
+export const communityPrizeAwardService = {
+  awardCommunityPrize,
+  getDrawAwards,
+  getMemberCommunityPrizes,
+  claimCommunityPrize,
+  getDrawClosureReport,
+  getAllClosureReports
+};

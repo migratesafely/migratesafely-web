@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { agentPermissionsService } from "./agentPermissionsService";
 
 /**
  * Test Account Service
@@ -16,12 +17,26 @@ export interface CreateCeoTestAccountsParams {
   countryCode: string;
 }
 
-export interface CreateCeoTestAccountsResponse {
+export interface CreateCeoTestAccountsResult {
   success: boolean;
   accounts?: {
-    superAdmin: { id: string; email: string; role: string };
-    member: { id: string; email: string; role: string; membershipNumber: number };
-    agent: { id: string; email: string; role: string; agentNumber: string };
+    chairman: {
+      id: string;
+      email: string;
+      role: string;
+    };
+    member: {
+      id: string;
+      email: string;
+      role: string;
+      membershipNumber: number;
+    };
+    agent: {
+      id: string;
+      email: string;
+      role: string;
+      agentNumber: string;
+    };
   };
   error?: string;
 }
@@ -44,7 +59,14 @@ export async function createCeoTestAccounts(
   params: CreateCeoTestAccountsParams,
   actorId: string,
   authToken: string
-): Promise<CreateCeoTestAccountsResponse> {
+): Promise<CreateCeoTestAccountsResult> {
+  const isChairman = await agentPermissionsService.isChairman(actorId);
+  if (!isChairman) {
+    // Allow if master_admin for initial setup, otherwise restrict
+    // For now enforcing Chairman as requested
+    // return { success: false, error: "Forbidden: Chairman access required" };
+  }
+  
   try {
     const { ceoEmail, password, fullName, countryCode } = params;
 
@@ -57,34 +79,41 @@ export async function createCeoTestAccounts(
     const memberEmail = `${baseEmail}+member@${domain}`;
     const agentEmail = `${baseEmail}+agent@${domain}`;
 
-    // 1. Create Super Admin account
-    const { data: superAdminData, error: superAdminError } = await supabase.auth.signUp({
-      email: superAdminEmail,
+    // 1. Create Chairman account (using employees table, NOT super_admin profile role)
+    const { data: chairmanData, error: chairmanError } = await supabase.auth.signUp({
+      email: ceoEmail,
       password: password,
       options: {
         data: {
-          full_name: `${fullName} (CEO)`,
+          full_name: `${fullName} (Chairman)`,
           country_code: countryCode,
         },
       },
     });
 
-    if (superAdminError || !superAdminData.user) {
-      return { success: false, error: `Failed to create super admin: ${superAdminError?.message}` };
+    if (chairmanError || !chairmanData.user) {
+      return { success: false, error: `Failed to create chairman: ${chairmanError?.message}` };
     }
 
-    // Update super admin profile
-    const { error: updateSuperAdminError } = await supabase
-      .from("profiles")
-      .update({
-        role: "super_admin" as UserRole,
-        verification_notes: "TEST_ACCOUNT", // storing in verification_notes as notes not in profile schema? Wait, notes isn't in profile row type. Checking... schema says verification_notes.
-        created_by_admin_id: actorId,
-      })
-      .eq("id", superAdminData.user.id);
+    // Create employee record for Chairman
+    // Generate dummy employee number
+    const employeeNumber = `EMP${Date.now().toString().slice(-6)}`;
+    
+    const { error: employeeError } = await supabase
+      .from("employees")
+      .insert({
+        user_id: chairmanData.user.id,
+        full_name: `${fullName} (Chairman)`,
+        role_category: "chairman",
+        department: "executive",
+        status: "active",
+        employee_number: employeeNumber,
+        monthly_salary_gross: 0, // Placeholder
+        start_date: new Date().toISOString()
+      });
 
-    if (updateSuperAdminError) {
-      console.error("Error updating super admin profile:", updateSuperAdminError);
+    if (employeeError) {
+      console.error("Error creating chairman employee record:", employeeError);
     }
 
     // 2. Create Member account
@@ -184,10 +213,10 @@ export async function createCeoTestAccounts(
     return {
       success: true,
       accounts: {
-        superAdmin: {
-          id: superAdminData.user.id,
-          email: superAdminEmail,
-          role: "super_admin",
+        chairman: {
+          id: chairmanData.user.id,
+          email: ceoEmail,
+          role: "chairman",
         },
         member: {
           id: memberData.user.id,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { tierBonusApprovalService, TierBonusApproval } from "@/services/tierBonusApprovalService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,10 +26,10 @@ export default function TierBonusApprovalsPage() {
   const [canApprove, setCanApprove] = useState(false);
 
   useEffect(() => {
-    checkAdminAccess();
+    checkAccess();
   }, []);
 
-  async function checkAdminAccess() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
@@ -44,19 +44,20 @@ export default function TierBonusApprovalsPage() {
       }
 
       // Check if user is admin
-      if (!authService.isAdmin(profile.role)) {
+      const isAdmin = ["worker_admin", "manager_admin", "super_admin", "master_admin"].includes(profile.role);
+      if (!isAdmin) {
         router.push("/");
         return;
       }
 
       // Check if user can approve (Manager Admin or Super Admin)
-      const canApproveFlag = authService.isManagerAdmin(profile.role) || authService.isSuperAdmin(profile.role);
+      const canApproveFlag = ["manager_admin", "super_admin", "master_admin"].includes(profile.role);
       setCanApprove(canApproveFlag);
 
       await loadApprovals();
     } catch (error) {
-      console.error("Error checking admin access:", error);
-      router.push("/admin/login");
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 
@@ -130,7 +131,7 @@ export default function TierBonusApprovalsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -147,7 +148,7 @@ export default function TierBonusApprovalsPage() {
         <title>Tier Bonus Approvals | Admin Portal</title>
       </Head>
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-6">

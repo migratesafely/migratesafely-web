@@ -2,6 +2,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { logRoleChange } from "@/services/auditLogService";
+import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 
@@ -13,6 +17,9 @@ export default async function handler(
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
 
   try {
     // 1. Verify authentication
@@ -56,11 +63,10 @@ export default async function handler(
         .json({ error: "Forbidden: Profile not found" });
     }
 
-    // 3. Only super_admin can update roles
-    if (requesterProfile.role !== "super_admin") {
-      return res
-        .status(403)
-        .json({ error: "Forbidden: Only super_admin can update roles" });
+    // Check permissions - only Chairman can update admin roles
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // 4. Validate request body

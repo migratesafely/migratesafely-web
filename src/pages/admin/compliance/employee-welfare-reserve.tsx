@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Printer, Copy, CheckCircle2, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { MainHeader } from "@/components/MainHeader";
 
 export default function EmployeeWelfareReservePage() {
   const router = useRouter();

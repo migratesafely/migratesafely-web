@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 interface Winner {
   id: string;
@@ -34,24 +36,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  // Require admin role
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== "super_admin") {
-      return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+    // Authority: Chairman only for administrative winner view
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     const { drawId } = req.query;

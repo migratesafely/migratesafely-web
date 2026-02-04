@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { AdminNotificationBell } from "@/components/AdminNotificationBell";
-import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -346,7 +345,7 @@ export default function FinancialClosePage() {
         <title>Financial Close | Admin</title>
       </Head>
 
-      <AppHeader />
+      <MainHeader />
 
       <main className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -358,7 +357,6 @@ export default function FinancialClosePage() {
           </div>
           <div className="flex items-center gap-3">
             <AdminNotificationBell />
-            <ThemeSwitch />
           </div>
         </div>
 

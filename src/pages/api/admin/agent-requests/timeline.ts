@@ -1,6 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { agentRequestTimelineService } from "@/services/agentRequestTimelineService";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 /**
  * GET /api/admin/agent-requests/timeline
@@ -16,27 +18,15 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    // Verify admin role
-    const { data: adminProfile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !adminProfile) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    if (!["super_admin", "manager_admin", "worker_admin"].includes(adminProfile.role)) {
-      return res.status(403).json({ error: "Admin access required" });
+    // Only Chairman can view agent request timeline
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Get request_id from query

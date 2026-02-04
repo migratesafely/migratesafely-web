@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
 import { scamReportService } from "@/services/scamReportService";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,12 +44,10 @@ export default function ReviewScamReport() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    if (id) {
-      checkAuthAndLoadReport();
-    }
-  }, [id]);
+    checkAccess();
+  }, []);
 
-  async function checkAuthAndLoadReport() {
+  async function checkAccess() {
     try {
       // Check authentication
       const { data: { user } } = await supabase.auth.getUser();
@@ -58,33 +56,39 @@ export default function ReviewScamReport() {
         return;
       }
 
-      // Check admin role
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      if (!profile || !["manager_admin", "super_admin"].includes(profile.role)) {
-        setError("Access denied: Admin privileges required");
-        setLoading(false);
+      if (!isChairman && !["manager_admin", "worker_admin"].includes(profile?.role || "")) {
+        router.push("/admin");
         return;
       }
 
       setAuthorized(true);
 
-      // Load report details
-      const result = await scamReportService.getReportById(id as string);
-      if (result.success && result.report) {
-        setReport(result.report);
-      } else {
-        setError("Report not found");
+      if (id) {
+        // Load report details
+        const result = await scamReportService.getReportById(id as string);
+        if (result.success && result.report) {
+          setReport(result.report);
+        } else {
+          setError("Report not found");
+        }
       }
     } catch (err) {
-      console.error("Error:", err);
-      setError("Failed to load report");
-    } finally {
-      setLoading(false);
+      console.error("Error checking access:", err);
+      router.push("/admin");
     }
   }
 
@@ -192,7 +196,7 @@ export default function ReviewScamReport() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <AppHeader />
+        <MainHeader />
         <main className="container mx-auto px-4 py-8">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -205,7 +209,7 @@ export default function ReviewScamReport() {
   if (!authorized || !report) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <AppHeader />
+        <MainHeader />
         <main className="container mx-auto px-4 py-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -218,7 +222,7 @@ export default function ReviewScamReport() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <AppHeader />
+      <MainHeader />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <Button
           variant="ghost"

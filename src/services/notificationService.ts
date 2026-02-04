@@ -1,4 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+import { agentPermissionsService } from "./agentPermissionsService";
+
+type AdminNotification = Database["public"]["Tables"]["admin_notifications"]["Row"];
 
 export type NotificationType =
   | "agent_verification"
@@ -301,3 +305,56 @@ export const notificationService = {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   },
 };
+
+export async function getAdminNotifications(userId: string): Promise<{
+  success: boolean;
+  error: string | null;
+  notifications: any[];
+}> {
+  const isChairman = await agentPermissionsService.isChairman(userId);
+  const isAdmin = await agentPermissionsService.isAdmin(userId);
+  
+  if (!isChairman && !isAdmin) {
+    return {
+      success: false,
+      error: "User is not an admin",
+      notifications: [],
+    };
+  }
+
+  // Get notifications
+  // Cast to any to avoid TS2589 excessively deep type instantiation
+  const { data: notifications, error: notificationsError } = await (supabase as any)
+    .from("admin_notifications")
+    .select("*")
+    .eq("recipient_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (notificationsError) {
+    console.error("Error fetching admin notifications:", notificationsError);
+    return {
+      success: false,
+      error: "User is not an admin",
+      notifications: [],
+    };
+  }
+
+  return {
+    success: true,
+    error: null,
+    notifications: (notifications || []).map((n: any) => ({
+      notificationId: n.id,
+      notificationType: n.notification_type,
+      referenceId: n.reference_id,
+      referenceType: n.reference_type,
+      title: n.title,
+      description: n.description,
+      priority: n.priority,
+      actionUrl: n.action_url,
+      metadata: n.metadata,
+      isRead: n.is_read,
+      readAt: n.read_at,
+      createdAt: n.created_at,
+    })),
+  };
+}

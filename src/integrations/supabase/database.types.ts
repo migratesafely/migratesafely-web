@@ -7393,6 +7393,15 @@ export type Database = {
         Args: { p_admin_id: string; p_month: number; p_year: number }
         Returns: Json
       }
+      create_chairman_account: {
+        Args: {
+          p_country_code?: string
+          p_email: string
+          p_full_name: string
+          p_password: string
+        }
+        Returns: Json
+      }
       create_notification: {
         Args: {
           p_action_url?: string
@@ -7560,6 +7569,7 @@ export type Database = {
         Args: { p_admin_id?: string; p_date?: string; p_department?: string }
         Returns: Json
       }
+      get_current_user_role: { Args: never; Returns: string }
       get_draw_total_prize_value: {
         Args: { draw_id_param: string }
         Returns: number

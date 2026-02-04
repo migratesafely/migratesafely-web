@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Shield, UserPlus, Search, AlertCircle, CheckCircle2, UserX, UserCheck, Edit } from "lucide-react";
+import { Shield, UserPlus, Search, AlertCircle, CheckCircle2, UserX, UserCheck, Edit, Users, Network } from "lucide-react";
 
 type AdminUser = {
   id: string;
@@ -61,12 +61,12 @@ export default function AdminManagementPage() {
   });
 
   useEffect(() => {
-    checkAdminAccess();
+    checkAccess();
   }, []);
 
   useEffect(() => {
     const view = router.query.view as string;
-    if (view === "hierarchy" && userRole === "super_admin") {
+    if (view === "hierarchy" && userRole === "chairman") {
       setViewMode("hierarchy");
       fetchHierarchy();
     } else {
@@ -78,37 +78,55 @@ export default function AdminManagementPage() {
     filterAdmins();
   }, [searchQuery, admins]);
 
-  async function checkAdminAccess() {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  async function checkAccess() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/admin/login");
+        return;
+      }
 
-    if (!session) {
-      router.push("/admin/login");
-      return;
+      // Check for Chairman
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
+      // Fallback to profile role for other admins
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      setUserRole(isChairman ? "chairman" : profile?.role || "");
+      
+      if (!isChairman && !["master_admin", "manager_admin"].includes(profile?.role || "")) {
+        router.push("/admin");
+        return;
+      }
+      
+      setLoading(false);
+      fetchAdmins();
+    } catch (error) {
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (!profile || !["super_admin", "manager_admin"].includes(profile.role || "")) {
-      router.push("/dashboard");
-      return;
-    }
-
-    setUserRole(profile.role);
-    await fetchAdmins(session.access_token);
-    setLoading(false);
   }
 
-  async function fetchAdmins(token: string) {
+  async function fetchAdmins() {
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+
       const response = await fetch("/api/admin/admins/list", {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
@@ -173,7 +191,7 @@ export default function AdminManagementPage() {
       showAlert("success", data.message || "Admin created successfully");
       setIsCreateModalOpen(false);
       resetForm();
-      await fetchAdmins(session.access_token);
+      await fetchAdmins();
     } catch (error) {
       showAlert("error", error instanceof Error ? error.message : "Failed to create admin");
     } finally {
@@ -327,7 +345,9 @@ export default function AdminManagementPage() {
     );
   }
 
-  const canCreateManager = userRole === "super_admin";
+  // In this file, userRole is set to "chairman" if they are chairman.
+  const canCreateManager = userRole === "chairman";
+  const canCreateWorker = ["chairman", "manager_admin"].includes(userRole || "");
   const roleOptions = canCreateManager
     ? [
         { value: "manager_admin", label: "Manager Admin" },
@@ -337,7 +357,7 @@ export default function AdminManagementPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <MainHeader />
       <main className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -352,7 +372,7 @@ export default function AdminManagementPage() {
             </div>
 
             <div className="flex gap-2">
-              {userRole === "super_admin" && (
+              {userRole === "chairman" && (
                 <>
                   <Dialog open={isCeoModalOpen} onOpenChange={setIsCeoModalOpen}>
                     <DialogTrigger asChild>

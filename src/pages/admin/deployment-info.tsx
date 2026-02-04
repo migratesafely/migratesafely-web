@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,10 +15,10 @@ export default function DeploymentInfoPage() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    checkAdminAccess();
+    checkAccess();
   }, []);
 
-  async function checkAdminAccess() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
@@ -27,7 +27,9 @@ export default function DeploymentInfoPage() {
       }
 
       const profile = await authService.getUserProfile(user.id);
-      if (!profile || !authService.isAdmin(profile.role)) {
+      const isAdminRole = profile && ["worker_admin", "manager_admin", "super_admin", "master_admin"].includes(profile.role);
+      
+      if (!isAdminRole) {
         router.push("/");
         return;
       }
@@ -35,15 +37,15 @@ export default function DeploymentInfoPage() {
       setIsAdmin(true);
       setLoading(false);
     } catch (error) {
-      console.error("Error checking admin access:", error);
-      router.push("/admin/login");
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -62,7 +64,7 @@ export default function DeploymentInfoPage() {
         <title>Deployment Info | Admin Portal</title>
       </Head>
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-6">

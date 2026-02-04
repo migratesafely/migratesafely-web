@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import {
   adminReportingService,
@@ -50,10 +50,10 @@ export default function AdminReportsPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    checkAdminAccess();
+    checkAccess();
   }, []);
 
-  async function checkAdminAccess() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
@@ -67,11 +67,10 @@ export default function AdminReportsPage() {
         return;
       }
 
-      const canAccessReports =
-        authService.isManagerAdmin(profile.role) || authService.isSuperAdmin(profile.role);
+      const canAccessReports = ["manager_admin", "chairman", "master_admin"].includes(profile.role);
 
       if (!canAccessReports) {
-        setErrorMessage("Access Denied: Manager Admin or Super Admin privileges required");
+        setErrorMessage("Access Denied: Manager Admin or Chairman privileges required");
         setLoading(false);
         setTimeout(() => router.push("/admin"), 2000);
         return;
@@ -81,8 +80,8 @@ export default function AdminReportsPage() {
       setAdminRole(profile.role);
       await loadAllReports();
     } catch (error) {
-      console.error("Error checking admin access:", error);
-      router.push("/admin/login");
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 
@@ -125,7 +124,7 @@ export default function AdminReportsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -139,7 +138,7 @@ export default function AdminReportsPage() {
   if (!canAccess) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <Alert variant="destructive" className="max-w-md">
             <AlertCircle className="h-4 w-4" />
@@ -156,7 +155,7 @@ export default function AdminReportsPage() {
         <title>Admin Reports | Migrate Safely</title>
       </Head>
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-6">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,10 +29,10 @@ export default function AdminQAPage() {
   const [testUserId, setTestUserId] = useState("");
 
   useEffect(() => {
-    checkSuperAdmin();
+    checkAccess();
   }, []);
 
-  async function checkSuperAdmin() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
 
@@ -47,7 +47,14 @@ export default function AdminQAPage() {
         .eq("id", user.id)
         .single();
 
-      if (profileError || !profile || profile.role !== "super_admin") {
+      // Check employee role for Chairman
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (employee?.role_category !== "chairman") {
         router.push("/dashboard");
         return;
       }
@@ -55,8 +62,8 @@ export default function AdminQAPage() {
       setIsSuperAdmin(true);
       setTestUserId(user.id);
     } catch (error) {
-      console.error("Error checking super admin status:", error);
-      router.push("/dashboard");
+      console.error("Error checking access:", error);
+      router.push("/admin");
     } finally {
       setLoading(false);
     }
@@ -476,7 +483,7 @@ export default function AdminQAPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -499,7 +506,7 @@ export default function AdminQAPage() {
       </Head>
 
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-8">
             <div className="flex items-center justify-between">

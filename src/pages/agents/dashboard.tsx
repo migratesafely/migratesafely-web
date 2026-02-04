@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { 
   Users, Activity, CheckCircle, Mail, AlertTriangle, Shield, Eye 
 } from "lucide-react";
@@ -98,7 +99,7 @@ export default function AgentDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <AppHeader />
+        <MainHeader />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="space-y-6">
             <Skeleton className="h-12 w-64" />
@@ -121,7 +122,13 @@ export default function AgentDashboard() {
         <title>Agent Dashboard - MigrateSafely</title>
       </Head>
 
-      <AppHeader />
+      <MainHeader />
+      
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-end gap-4">
+          <LanguageSelector variant="compact" showLabel={false} />
+        </div>
+      </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">

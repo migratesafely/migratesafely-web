@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { agentPermissionsService } from "./agentPermissionsService";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 type MessageRecipientRow = Database["public"]["Tables"]["message_recipients"]["Row"];
@@ -109,6 +110,11 @@ export const messageService = {
       if (messageError) {
         console.error("Error creating support message:", messageError);
         return { success: false, error: "Failed to create support message" };
+      }
+
+      const isChairman = await agentPermissionsService.isChairman(userId);
+      if (!isChairman) {
+        return { success: false, error: "Forbidden: Chairman access required" };
       }
 
       const { data: admins, error: adminsError } = await supabase

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,18 +52,26 @@ export default function AdminEmbassiesPage() {
       return;
     }
 
+    const { data: employee } = await supabase
+      .from("employees")
+      .select("role_category")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const isChairman = employee?.role_category === "chairman";
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
-
-    if (!profile || (profile.role !== "worker_admin" && profile.role !== "manager_admin" && profile.role !== "super_admin")) {
-      router.push("/dashboard");
-      return;
+    
+    const role = profile?.role;
+    if (isChairman || role === "worker_admin" || role === "manager_admin") {
+      setUserRole(isChairman ? "chairman" : role);
+    } else {
+      router.push("/");
     }
-
-    setUserRole(profile.role);
   }
 
   async function fetchEmbassies() {
@@ -103,7 +111,7 @@ export default function AdminEmbassiesPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <MainHeader />
       
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="mb-6">

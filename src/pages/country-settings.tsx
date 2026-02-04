@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Lock, Save } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 
 interface ExtendedCountrySettings {
   countryCode: string;
@@ -78,6 +78,19 @@ export default function CountrySettingsPage() {
         .select("role")
         .eq("id", user.id)
         .single();
+
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
+      if (!isChairman) {
+        router.push("/dashboard");
+        return;
+      }
 
       if (error || !profile || profile.role !== "super_admin") {
         setErrorMessage("Access Denied: Super Admin privileges required");
@@ -236,7 +249,7 @@ export default function CountrySettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <MainHeader />
       <div className="p-8">
         <div className="max-w-2xl mx-auto space-y-6">
           <div>

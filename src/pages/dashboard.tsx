@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { VirtualMembershipCard } from "@/components/VirtualMembershipCard";
 import { TierProgressBar } from "@/components/TierProgressBar";
 import { TierBenefitsDisplay } from "@/components/TierBenefitsDisplay";
 import { LoyaltyProgramInfo } from "@/components/LoyaltyProgramInfo";
 import { PrizeClaimButton } from "@/components/PrizeClaimButton";
 import { formatCurrency } from "@/lib/countryConfig";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import Link from "next/link";
 import Head from "next/head";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -292,7 +292,10 @@ export default function DashboardPage() {
 
         // Redirect agents to their own dashboard
         if (["agent", "agent_pending", "agent_suspended"].includes(profile.role)) {
-          router.push(authService.getDashboardPath(profile.role));
+          const dashboardPath = profile.role === "agent" ? "/agents/dashboard" : 
+                               profile.role === "agent_suspended" ? "/agents/suspended" : 
+                               "/agents/pending";
+          router.push(dashboardPath);
           return;
         }
 
@@ -460,7 +463,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -477,7 +480,13 @@ export default function DashboardPage() {
         <title>{t.pageTitle}</title>
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <AppHeader />
+        <MainHeader />
+        
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-end gap-4">
+            <LanguageSelector variant="compact" showLabel={false} />
+          </div>
+        </div>
 
         {/* Agreement Acceptance Modal */}
         {showAgreementModal && (

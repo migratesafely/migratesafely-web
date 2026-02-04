@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, FileText, Calculator, Heart, Receipt, ClipboardCheck, Shield, Globe } from "lucide-react";
+import { MainHeader } from "@/components/MainHeader";
 
 const supabaseAny = supabase as any;
 

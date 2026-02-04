@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,10 +46,10 @@ export default function AdminIdentityVerificationsPage() {
   const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
-    checkAdminAndLoadData();
+    checkAccess();
   }, []);
 
-  async function checkAdminAndLoadData() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
@@ -57,24 +57,30 @@ export default function AdminIdentityVerificationsPage() {
         return;
       }
 
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      if (!profile || !["super_admin", "manager_admin"].includes(profile.role)) {
-        router.push("/dashboard");
+      if (!isChairman && !["manager_admin", "worker_admin"].includes(profile?.role || "")) {
+        router.push("/admin");
         return;
       }
 
       setIsAdmin(true);
       await loadVerifications();
     } catch (error) {
-      console.error("Error checking admin:", error);
-      router.push("/dashboard");
-    } finally {
-      setLoading(false);
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 
@@ -163,7 +169,7 @@ export default function AdminIdentityVerificationsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -184,7 +190,7 @@ export default function AdminIdentityVerificationsPage() {
       </Head>
 
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <main className="max-w-7xl mx-auto px-4 py-12">
           <div className="space-y-6">
             <div>

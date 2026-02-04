@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 /**
  * PHASE AGENT-ONBOARD-1A: Reinstate suspended agent
@@ -14,44 +17,29 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get authorization token
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "No authorization token" });
-    }
-
-    // Verify user session
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    // Check if user is admin with APPROVAL AUTHORITY
-    const { data: adminProfile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !adminProfile) {
-      return res.status(403).json({ error: "Access denied" });
+    // Only Chairman can reinstate agents
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     const { agent_user_id, reason } = req.body;
 
     // STRICT ENFORCEMENT: Only super_admin and manager_admin
-    if (!["super_admin", "manager_admin"].includes(adminProfile.role)) {
+    if (!["super_admin", "manager_admin"].includes(auth.userRole)) {
       // Log unauthorized attempt in audit_logs
       await supabase.from("audit_logs").insert({
-        admin_id: user.id,
+        admin_id: auth.userId,
         action: "AGENT_REINSTATE_ATTEMPT_DENIED",
         entity_type: "agent_approval",
         entity_id: agent_user_id,
         changes: {
-          attempted_role: adminProfile.role,
+          attempted_role: auth.userRole,
           reason: "Worker admins are not authorized to reinstate agents",
         },
       });
@@ -114,8 +102,8 @@ export default async function handler(
       .from("agent_approval_audit_log")
       .insert({
         agent_user_id,
-        admin_user_id: user.id,
-        admin_role: adminProfile.role,
+        admin_user_id: auth.userId,
+        admin_role: auth.userRole as any,
         action_type: "reinstate",
         previous_role: previousRole,
         new_role: newRole,
@@ -127,7 +115,23 @@ export default async function handler(
       // Continue even if audit log fails (agent is already reinstated)
     }
 
-    console.log(`Agent reinstated: ${agentProfile.email} by ${adminProfile.role} ${user.email}`);
+    // Create audit log entry with governance context
+    await logAdminAction({
+      actorId: auth.userId,
+      action: "AGENT_REINSTATED",
+      targetUserId: agent_user_id,
+      tableName: "profiles",
+      recordId: agent_user_id,
+      oldValues: { agent_status: previousRole },
+      newValues: { agent_status: newRole },
+      details: { 
+        reason: reason.trim(),
+        governance_policy: "STRICT_APPROVAL_AUTHORITY",
+        reinstated_by_role: auth.userRole
+      },
+    });
+
+    console.log(`Agent reinstated: ${agentProfile.email} by ${auth.userRole} ${auth.userEmail}`);
 
     return res.status(200).json({ 
       message: "Agent reinstated successfully",
@@ -135,12 +139,13 @@ export default async function handler(
         id: agent_user_id,
         email: agentProfile.email,
         full_name: agentProfile.full_name,
-        previous_role: previousRole,
-        new_role: newRole
+        previous_status: previousRole,
+        new_status: newRole
       },
       reinstated_by: {
-        id: user.id,
-        role: adminProfile.role
+        id: auth.userId,
+        role: auth.userRole,
+        email: auth.userEmail
       }
     });
   } catch (error) {

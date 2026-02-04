@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
+import { PublicFooter } from "@/components/PublicFooter";
 import { authService } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Upload, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { SEO } from "@/components/SEO";
 
 export default function VerifyIdentityPage() {
   const router = useRouter();
@@ -199,7 +201,7 @@ export default function VerifyIdentityPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -210,7 +212,7 @@ export default function VerifyIdentityPage() {
   if (!hasActiveMembership) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="max-w-2xl mx-auto px-4 py-12">
           <Alert variant="destructive">
             <AlertDescription>Active membership required to verify identity</AlertDescription>
@@ -222,12 +224,12 @@ export default function VerifyIdentityPage() {
 
   return (
     <>
-      <Head>
-        <title>Verify Identity | MigrateSafely.com</title>
-      </Head>
-
-      <div className="min-h-screen bg-background">
-        <AppHeader />
+      <SEO
+        title="Verify Identity - MigrateSafely"
+        description="Verify an identity document or user"
+      />
+      <MainHeader />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12">
         <main className="max-w-3xl mx-auto px-4 py-12">
           <div className="space-y-6">
             <div>
@@ -450,6 +452,8 @@ export default function VerifyIdentityPage() {
             </Card>
           </div>
         </main>
+        
+        <PublicFooter />
       </div>
     </>
   );

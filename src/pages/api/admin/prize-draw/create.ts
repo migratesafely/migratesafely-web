@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { requireAdminRole } from "@/lib/apiMiddleware";
 import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 interface CreateDrawRequest {
   countryCode: string;
@@ -33,19 +34,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   if (!auth) return; // Middleware handles rejection
 
   try {
-    // Only super admin can create prize draws
-    if (auth.userRole !== "super_admin") {
+    // Only Chairman can create prize draws
+    // LEGACY: super_admin check removed
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
       // Log unauthorized attempt
       await logAdminAction({
         actorId: auth.userId,
         action: "PRIZE_DRAW_CREATE_ATTEMPT_DENIED",
         details: {
           attempted_role: auth.userRole,
-          reason: "Only Super Admin can create prize draws",
+          reason: "Only Chairman can create prize draws",
         },
       });
 
-      return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Parse request body

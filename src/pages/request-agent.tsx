@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,9 +47,9 @@ const TEXT = {
     loading: "Loading..."
   },
   bn: {
-    pageTitle: "একটি অনুমোদিত এজেন্ট অনুরোধ করুন | নিরাপদে মাইগ্রেট করুন",
+    pageTitle: "একটি অনোদিত এজেন্ট অনোধ করুন | নিরাপদে মাইগ্রেট করুন",
     metaDescription: "ব্যক্তিগত সহায়তার জন্য অনুমোদিত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত হন",
-    title: "একটি অনুমোদিত এজেন্ট অনুরোধ করুন",
+    title: "একটি অনোদিত এজেন্ট অনোধ করুন",
     subtitle: "আমাদের অনুমোদিত মাইগ্রেশন এজেন্টদের নেটওয়ার্ক থেকে ব্যক্তিগত সহায়তা পান",
     form: {
       yourCountry: "আপনার দেশ",
@@ -72,11 +72,11 @@ const TEXT = {
       title: "অনুরোধ সফলভাবে জমা দেওয়া হয়েছে!",
       message: "আমাদের টিম আপনার অনুরোধ পর্যালোচনা করবে এবং শীঘ্রই একটি অনুমোদিত এজেন্ট নিয়োগ করবে। আপনাকে ইমেইলের মাধ্যমে অবহিত করা হবে।",
       viewRequests: "আমার অনুরোধ দেখুন",
-      submitAnother: "আরেকটি অনুরোধ জমা দিন"
+      submitAnother: "আরেকটি অনোধ জমা দিন"
     },
     errors: {
-      loginRequired: "এজেন্ট অনুরোধ করতে দয়া করে লগইন করুন",
-      membershipRequired: "এজেন্ট অনুরোধ করতে সক্রিয় সদস্যপদ প্রয়োজন",
+      loginRequired: "এজেন্ট অনোধ করতে দয়া করে লগইন করুন",
+      membershipRequired: "এজেন্ট অনোধ করতে সক্রিয় সদস্যপদ প্রয়োজন",
       submitFailed: "অনুরোধ জমা দিতে ব্যর্থ। দয়া করে আবার চেষ্টা করুন।"
     },
     loading: "লোড হচ্ছে..."
@@ -164,7 +164,7 @@ export default function RequestAgentPage() {
           <meta name="description" content={t.metaDescription} />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-          <AppHeader />
+          <MainHeader />
           <main className="container mx-auto px-4 py-8 max-w-2xl">
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -183,7 +183,7 @@ export default function RequestAgentPage() {
           <meta name="description" content={t.metaDescription} />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-          <AppHeader />
+          <MainHeader />
           <main className="container mx-auto px-4 py-8 max-w-2xl">
             <Card>
               <CardHeader>
@@ -209,7 +209,7 @@ export default function RequestAgentPage() {
           <meta name="description" content={t.metaDescription} />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-          <AppHeader />
+          <MainHeader />
           <main className="container mx-auto px-4 py-8 max-w-2xl">
             <Card>
               <CardHeader>
@@ -244,7 +244,7 @@ export default function RequestAgentPage() {
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <AppHeader />
+        <MainHeader />
 
         <main className="container mx-auto px-4 py-8 max-w-2xl">
           <div className="text-center mb-8">
@@ -261,7 +261,7 @@ export default function RequestAgentPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>{language === "en" ? "Request Details" : "অনুরোধের বিবরণ"}</CardTitle>
+              <CardTitle>{language === "en" ? "Request Details" : "অনোধের বিবরণ"}</CardTitle>
               <CardDescription>
                 {language === "en"
                   ? "Tell us about your migration needs and we'll connect you with the right agent"

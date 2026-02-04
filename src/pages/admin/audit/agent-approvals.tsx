@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,11 +39,10 @@ export default function AgentApprovalsAuditPage() {
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0, has_more: false });
 
   useEffect(() => {
-    checkAccessAndLoadData();
-  }, [pagination.offset]);
+    checkAccess();
+  }, []);
 
-  const checkAccessAndLoadData = async () => {
-    setLoading(true);
+  async function checkAccess() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -51,16 +50,22 @@ export default function AgentApprovalsAuditPage() {
         return;
       }
 
-      // Check admin role
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      // STRICT ACCESS CONTROL: Only super_admin and manager_admin
-      if (!profile || !["super_admin", "manager_admin"].includes(profile.role)) {
-        router.push("/dashboard");
+      if (!isChairman && profile?.role !== "manager_admin") {
+        router.push("/admin");
         return;
       }
 
@@ -86,9 +91,8 @@ export default function AgentApprovalsAuditPage() {
       setAuditLogs(data.audit_logs || []);
       setPagination(data.pagination);
     } catch (error) {
-      console.error("Error loading audit logs:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   };
 
@@ -128,7 +132,7 @@ export default function AgentApprovalsAuditPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AppHeader />
+      <MainHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}

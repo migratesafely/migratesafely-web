@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { requireAdminRole } from "@/lib/apiMiddleware";
 import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 /**
  * GOVERNANCE POLICY: Agent Rejection Endpoint
@@ -33,24 +34,21 @@ export default async function handler(
   try {
     const { agent_user_id, reason } = req.body;
 
-    // STRICT ENFORCEMENT: Only super_admin and manager_admin
-    // This prevents worker_admin, staff, agents, and members from rejecting
-    if (!["super_admin", "manager_admin"].includes(auth.userRole)) {
-      // Log unauthorized attempt for audit trail
-      await logAdminAction({
-        actorId: auth.userId,
-        action: "AGENT_REJECT_ATTEMPT_DENIED",
-        targetUserId: agent_user_id,
-        details: {
-          attempted_role: auth.userRole,
-          reason: "Agent rejections are restricted to Admin/Super Admin to prevent conflicts of interest or corruption",
-          governance_policy: "STRICT_APPROVAL_AUTHORITY"
-        },
-      });
-
-      return res.status(403).json({ 
-        error: "Forbidden: Agent rejections are restricted to Admin and Super Admin roles only",
-        governance_policy: "Agent approvals are restricted to Admin/Super Admin to prevent conflicts of interest or corruption"
+    // STRICT ENFORCEMENT: Only Chairman can reject agent applications
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    if (!isChairman) {
+      // Log unauthorized attempt
+      await agentPermissionsService.logPermissionViolation(
+        auth.userId,
+        "AGENT_REJECTION_ATTEMPT",
+        { agent_user_id, attempted_action: "reject", governance_policy: "Agent rejection is restricted to Chairman" },
+        req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "unknown",
+        req.headers["user-agent"]
+      );
+      return res.status(403).json({
+        success: false,
+        error: "Forbidden: Chairman access required",
+        details: "Agent rejection is restricted to Chairman"
       });
     }
 

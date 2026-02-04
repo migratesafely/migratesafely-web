@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 type MembershipStatus = Database["public"]["Enums"]["membership_status"];
@@ -15,7 +18,16 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
+    // Check permissions - only Chairman can create CEO test accounts
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
+    }
+
     // 1. Verify authentication
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {

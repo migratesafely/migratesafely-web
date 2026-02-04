@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -431,7 +431,7 @@ export default function AttendanceDashboard() {
       fallbackTitle="Attendance Dashboard Error"
       fallbackMessage="Attendance data could not be loaded. Please refresh or try again later."
     >
-      <AppHeader />
+      <MainHeader />
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="container mx-auto px-4">
           <div className="mb-8">

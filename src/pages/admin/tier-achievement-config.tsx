@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import {
   tierAchievementConfigService,
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/table";
 import { Loader2, Settings, Shield, AlertCircle, CheckCircle, Edit, History, Info, Lock, DollarSign } from "lucide-react";
 import Head from "next/head";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function TierAchievementConfigPage() {
   const router = useRouter();
@@ -46,10 +47,10 @@ export default function TierAchievementConfigPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    checkAdminAccess();
+    checkAccess();
   }, []);
 
-  async function checkAdminAccess() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
       
@@ -60,21 +61,35 @@ export default function TierAchievementConfigPage() {
 
       const profile = await authService.getUserProfile(user.id);
       
-      if (!profile || !authService.isAdmin(profile.role)) {
+      const isAdmin = profile && ["worker_admin", "manager_admin", "super_admin", "master_admin"].includes(profile.role);
+      if (!isAdmin) {
         setErrorMessage("Access Denied: Admin privileges required");
         setLoading(false);
         setTimeout(() => router.push("/admin"), 2000);
         return;
       }
 
-      setIsSuperAdmin(authService.isSuperAdmin(profile.role));
-      setIsManagerAdmin(authService.isManagerAdmin(profile.role));
-      
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+
+      if (!isChairman) {
+        setErrorMessage("Access Denied: Chairman privileges required");
+        setLoading(false);
+        setTimeout(() => router.push("/admin"), 2000);
+        return;
+      }
+
+      setIsSuperAdmin(true);
       await loadTierConfigs();
       await loadAuditLogs();
     } catch (error) {
-      console.error("Error checking admin access:", error);
-      router.push("/admin/login");
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 
@@ -172,7 +187,7 @@ export default function TierAchievementConfigPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -189,7 +204,7 @@ export default function TierAchievementConfigPage() {
         <title>Tier Achievement Bonus Config | Admin Portal</title>
       </Head>
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-6">

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Clock, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MainHeader } from "@/components/MainHeader";
 
 export default function AgentPendingPage() {
   const router = useRouter();
@@ -35,7 +36,9 @@ export default function AgentPendingPage() {
 
       // If user is no longer pending, redirect to appropriate dashboard
       if (profile.role !== "agent_pending") {
-        const dashboardPath = authService.getDashboardPath(profile.role);
+        const dashboardPath = profile.role === "agent" ? "/agents/dashboard" : 
+                             profile.role === "agent_suspended" ? "/agents/suspended" : 
+                             "/dashboard";
         router.push(dashboardPath);
         return;
       }

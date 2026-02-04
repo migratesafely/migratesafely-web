@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { SEO } from "@/components/SEO";
+import { MainHeader } from "@/components/MainHeader";
 import { PrizeDrawCountdown } from "@/components/PrizeDrawCountdown";
 import { PublicPageTeaser } from "@/components/PublicPageTeaser";
 import { authService } from "@/services/authService";
@@ -12,6 +13,7 @@ import { Loader2, Trophy, Gift, Info, Sparkles, Heart, LogIn, Shield, Globe, Fil
 import Head from "next/head";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { PublicFooter } from "@/components/PublicFooter";
 
 type DrawStatus = "COMING_SOON" | "ANNOUNCED" | "NONE";
 
@@ -276,12 +278,12 @@ export default function PrizeDrawPage() {
 
   return (
     <>
-      <Head>
-        <title>{t.pageTitle}</title>
-      </Head>
-      <AppHeader />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <SEO
+        title={isLoggedIn ? "Prize Draw - MigrateSafely" : "Prize Draw (Members Only) - MigrateSafely"}
+        description={isLoggedIn ? "Enter our prize draw and win amazing prizes" : "Join MigrateSafely to participate in prize draws"}
+      />
+      <MainHeader />
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-800">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -763,6 +765,8 @@ export default function PrizeDrawPage() {
           </DialogDescription>
         </DialogContent>
       </Dialog>
+
+      <PublicFooter />
     </>
   );
 }

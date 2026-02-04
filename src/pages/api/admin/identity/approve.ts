@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -7,20 +10,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const auth = await requireAdminRole(req, res);
+    if (!auth) return; // Middleware handles rejection
 
-    if (sessionError || !session) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
+    // AUTHORITY: Only Chairman can approve identity verifications
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (!profile || !["super_admin", "manager_admin"].includes(profile.role)) {
-      return res.status(403).json({ success: false, error: "Admin access required" });
+    if (!isChairman) {
+      return res.status(403).json({ error: "Forbidden - Chairman access required" });
     }
 
     const { verificationId } = req.body;
@@ -33,13 +30,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from("identity_verifications")
       .update({
         status: "APPROVED",
-        reviewed_by: session.user.id,
+        reviewed_by: auth.userId,
         reviewed_at: new Date().toISOString(),
         rejection_reason: null,
       })
       .eq("id", verificationId);
 
     if (updateError) throw updateError;
+    
+    // Log action
+    await logAdminAction({
+        actorId: auth.userId,
+        action: "IDENTITY_APPROVED",
+        recordId: verificationId,
+        tableName: "identity_verifications",
+        details: { approved_by: auth.userRole }
+    });
 
     return res.status(200).json({ success: true });
   } catch (error) {

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Mail, Shield } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MainHeader } from "@/components/MainHeader";
 
 export default function AgentSuspendedPage() {
   const router = useRouter();
@@ -35,7 +36,9 @@ export default function AgentSuspendedPage() {
 
       // If user is no longer suspended, redirect to appropriate dashboard
       if (profile.role !== "agent_suspended") {
-        const dashboardPath = authService.getDashboardPath(profile.role);
+        const dashboardPath = profile.role === "agent" ? "/agents/dashboard" : 
+                             profile.role === "agent_pending" ? "/agents/pending" : 
+                             "/dashboard";
         router.push(dashboardPath);
         return;
       }

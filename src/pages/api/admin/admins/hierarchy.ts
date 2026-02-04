@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 type HierarchyAdmin = {
   id: string;
@@ -64,10 +67,12 @@ export default async function handler(
         .json({ error: "Forbidden: Profile not found" });
     }
 
-    // 3. Only super_admin can view hierarchy
-    if (requesterProfile.role !== "super_admin") {
+    // 3. Only Chairman can view hierarchy
+    const isChairman = await agentPermissionsService.isChairman(user.id);
+    
+    if (!isChairman) {
       return res.status(403).json({
-        error: "Forbidden: Only super_admin can view admin hierarchy",
+        error: "Forbidden: Only Chairman can view admin hierarchy",
       });
     }
 

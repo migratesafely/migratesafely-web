@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -107,7 +107,7 @@ const TRANSLATIONS = {
   },
   bn: {
     pageTitle: "মাইগ্রেশন এজেন্ট | Migratesafely.com",
-    metaDescription: "Migratesafely-এর যাচাইকৃত মাইগ্রেশন এজেন্ট সম্পর্কে জানুন। সকল এজেন্ট পেশাগতভাবে যাচাই করা এবং সদস্যদের মাইগ্রেশন নির্দেশনায় সহায়তা করার জন্য অনুমোদিত।",
+    metaDescription: "Migratesafely-এর যাচাইকৃত মাইগ্রেশন এজেন্ট সম্পর্কে জানুন। সকল এজেন্ট পেশাদারদের সাথে সংযুক্ত হন যারা আপনার মাইগ্রেশন যাত্রায় আপনাকে গাইড করতে পারেন",
     hero: {
       title: "মাইগ্রেশন এজেন্ট",
       subtitle: "যাচাইকৃত পেশাদারদের সাথে সংযুক্ত হন যারা আপনার মাইগ্রেশন যাত্রায় আপনাকে গাইড করতে পারেন"
@@ -116,11 +116,11 @@ const TRANSLATIONS = {
       title: "Migratesafely এজেন্ট কি?",
       description: "Migratesafely এজেন্টরা স্বাধীন, লাইসেন্সপ্রাপ্ত মাইগ্রেশন পরামর্শদাতা যারা আমাদের প্ল্যাটফর্ম দ্বারা যাচাই এবং অনুমোদিত হয়েছেন। তারা পেশাদার নির্দেশনা, ডকুমেন্টেশন সাপোর্ট এবং মাইগ্রেশন প্রক্রিয়া জুড়ে সহায়তা প্রদান করেন।",
       points: [
-        "লাইসেন্সপ্রাপ্ত এবং প্রত্যয়িত মাইগ্রেশন পেশাদার",
+        "লাইসেন্সপ্রাপ্ত এবং প্রত্যায়িত মাইগ্রেশন পেশাদার",
         "Migratesafely দ্বারা স্বাধীনভাবে পর্যালোচনা এবং যাচাই করা",
         "ভিসা আবেদন এবং ডকুমেন্টেশনে সদস্যদের সহায়তা করেন",
         "মাইগ্রেশন প্রক্রিয়া এবং প্রয়োজনীয়তা সম্পর্কে নির্দেশনা প্রদান করেন",
-        "আমাদের আচরণবিধি এবং নৈতিক মানদণ্ডের অধীন"
+        "আমাদের আচরণবিধি এবং নৈতিক মানদিন্ডের অধীন"
       ]
     },
     howItWorks: {
@@ -205,7 +205,7 @@ export default function AgentsPage() {
       />
 
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-        <AppHeader />
+        <MainHeader />
 
         {/* Agent Page Hero Image */}
         <section className="w-full bg-white dark:bg-gray-900 py-8">
@@ -261,9 +261,9 @@ export default function AgentsPage() {
               <Card className="p-8 bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-900">
                 <ul className="space-y-4">
                   {t.whatIsAgent.points.map((point, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <CheckCircle className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-700 dark:text-gray-300 text-lg">{point}</span>
+                    <li key={index} className="flex items-start gap-4">
+                      <CheckCircle className="w-8 h-8 text-green-500 flex-shrink-0 mt-1" />
+                      <span className="text-gray-700 dark:text-blue-300 text-lg">{point}</span>
                     </li>
                   ))}
                 </ul>

@@ -1,15 +1,19 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { AppHeader } from "@/components/AppHeader";
+import { useRouter } from "next/router";
+import { PublicFooter } from "@/components/PublicFooter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Users, Award, MapPin, CheckCircle, AlertTriangle, Building2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { PrizeDrawCountdown } from "@/components/PrizeDrawCountdown";
 import { PublicPageTeaser } from "@/components/PublicPageTeaser";
 import { formatCurrency } from "@/lib/countryConfig";
+import { MainHeader } from "@/components/MainHeader";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { nowBD } from "@/lib/bdTime";
 
 const TRANSLATIONS = {
   en: {
@@ -125,7 +129,7 @@ const TRANSLATIONS = {
   bn: {
     // Meta
     pageTitle: "MigrateSafely.com - নিরাপদ অভিবাসন এখানে শুরু হয় | যাচাইকৃত মাইগ্রেশন এজেন্ট বাংলাদেশ",
-    pageDescription: "যাচাইকৃত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত হন, যাচাইকৃত স্ক্যাম রিপোর্ট অ্যাক্সেস করুন এবং একটি বিশ্বস্ত কমিউনিটিতে যোগ দিন। আমরা আপনাকে যাচাইকৃত পেশাদারদের সাথে সংযুক্ত করে নিরাপদভাবে মাইগ্রেট করতে সাহায্য করি।",
+    pageDescription: "যাচাইকৃত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত হন, যাচাইকৃত স্ক্যাম রিপোর্ট অ্যাক্সেস করুন এবং একটি বিশ্বস্ত কমিউনিটিতে যোগ দিন। আমরা আপনাকে যাচাইকৃত পেশাদারদের সাথে সংযোগ করে নিরাপদভাবে মাইগ্রেট করতে সাহায্য করি।",
     
     // Language Selector
     chooseLanguage: "একটি ভাষা নির্বাচন করুন",
@@ -140,7 +144,7 @@ const TRANSLATIONS = {
     heroMembershipNote: "সদস্যপদ ফি প্রযোজ্য (দেশ-ভিত্তিক মূল্য)। সক্রিয় সদস্যদের জন্য পুরস্কার ড্র বিনামূল্যে পুরস্কার ড্র বিনামূল্যে।",
     
     // Pioneer Section (UPDATED - PROMPT: HOMEPAGE PIONEER STATEMENT)
-    pioneerTitle: "বিশ্বের প্রথম কমিউনিটি-নিয়ন্ত্রিত অভিবাসন যাচাই প্ল্যাটফর্ম",
+    pioneerTitle: "বিশ্বের প্রথম কমিউনিটি-নিয়ন্ত অভিবাসন যাচাই প্ল্যাটফর্ম",
     pioneerBody: "MigrateSafely হলো বিশ্বের প্রথম যাচাই-ভিত্তিক, কমিউনিটি পরিচালিত অভিবাসন সুরক্ষা প্ল্যাটফর্ম — যেখানে যাচাইকৃত এজেন্ট, স্বচ্ছ প্রক্রিয়া এবং নিয়ন্ত্রিত পুরস্কার ব্যবস্থা একত্রে কাজ করে।",
     pioneerValues: [
       "প্রতারণা কমানোর জন্য তৈরি।",
@@ -155,7 +159,7 @@ const TRANSLATIONS = {
     
     // Why We Exist
     whyTitle: "কেন আমরা আছি",
-    whyDescription: "প্রতি বছর হাজার হাজার মানুষ মাইগ্রেশন স্ক্যামের শিকার হয়, জাল এজেন্ট এবং প্রতারিত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত করি না",
+    whyDescription: "প্রতি বছর হাজার হাজার মানুষ মাইগ্রেশন স্ক্যামের শিকার হয়, জাল এজেন্ট এবং প্রতারিত মাইগ্রেশন এজেন্টদের সাথে সংযোগ করি না",
     problemTitle: "সমস্যা",
     problemItems: ["জাল মাইগ্রেশন এজেন্ট", "প্রতারিত মাইগ্রেশন এজেন্ট", "সারাজীবনের সঞ্চয় হারানো", "কোনো জবাবদিহিতা নেই", "প্রমাণপত্র যাচাই করা কিন্তু তাদের সেবা নিয়ন্ত্রণ করি না"],
     impactTitle: "প্রভাব",
@@ -165,7 +169,7 @@ const TRANSLATIONS = {
     
     // What We Do
     whatTitle: "আমরা কী করি",
-    whatDescription: "আমরা অনুরোধ এবং অনুমোদনের পরে সদস্যদের যাচাইকৃত অনুমোদিত মাইগ্রেশন এজেন্টদের সাথে সংযুক্ত করি। অননুমোদিত যোগাযোগ রোধ করতে এবং গুণমান নিয়ন্ত্রণ বজায় রাখতে আমরা এজেন্টদের সর্বজনীনভাবে তালিকাভুক্ত করি না।",
+    whatDescription: "আমরা অনুরোধ এবং অনুমোদনের পরে সদস্যদের যাচাইকৃত অনোধ পর্যালোচনা করে এবং উপযুক্ত যাচাইকৃত এজেন্টদের সাথে মিল করে। অননুমোদিত যোগাযোগ রোধ করতে এবং গুণমান নিয়ন্ত্রণ বজায় রাখতে আমরা এজেন্টদের সর্বজনীনভাবে তালিকাভুক্ত করি না।",
     approachTitle: "আমাদের পদ্ধতি",
     approachItems: [
       { title: "অনোধ-ভিত্তিক সংযোগ:", desc: "সদস্যরা তাদের প্রয়োজন বর্ণনা করে এজেন্ট অনোধ জমা দেন" },
@@ -195,7 +199,7 @@ const TRANSLATIONS = {
     
     // Disclaimer
     disclaimerTitle: "গুরুত্বপূর্ণ দাবিত্যাগ",
-    disclaimerSubtitle: "আমরা একটি ভিসা এজেন্সি নই। আমরা শুধুমাত্র যাচাইকৃত পেশাদারদের সাথে সংযুক্ত করি।",
+    disclaimerSubtitle: "আমরা একটি ভিসা এজেন্সি নই। আমরা শুধুমাত্র যাচাইকৃত পেশাদারদের সাথে সংযোগ করি।",
     disclaimerItems: [
       "সংযোগ প্ল্যাটফর্ম: আমরা সদস্য এবং যাচাইকৃত এজেন্টদের মধ্যে সংযোগ সহজতর করি",
       "কোনো ভিসা গ্যারান্টি নেই: ভিসা ফলাফল আপনার কেস, ডকুমেন্টেশন এবং সরকারি সিদ্ধান্তের উপর নির্ভর করে",
@@ -217,7 +221,7 @@ const TRANSLATIONS = {
     complianceAvailability: "বর্তমানে বাংলাদেশে উপলব্ধ। নতুন দেশ চালু হওয়ার আগে ঘোষণা করা হবে।",
     
     // Footer
-    footerTagline: "নিরাপদ, অনুরোধ-ভিত্তিক প্রক্রিয়ার মাধ্যমে যাচাইকৃত মাইগ্রেশন পেশাদারদের সাথে মানুষকে সংযুক্ত করা।",
+    footerTagline: "নিরাপদ, অনুরোধ-ভিত্তিক প্রক্রিয়ার মাধ্যমে যাচাইকৃত মাইগ্রেশন পেশাদারদের সাথে মানুষকে সংযোগ করা।",
     footerQuickLinks: "দ্রুত লিঙ্ক",
     footerAbout: "আমাদের সম্পর্কে",
     footerWinners: "পুরস্কার ড্র বিজয়ীরা",
@@ -230,13 +234,14 @@ const TRANSLATIONS = {
     footerScamReports: "স্ক্যাম রিপোর্ট",
     footerPrizeDraw: "পুরস্কার ড্র",
     footerCopyright: "সর্বস্বত্ব সংরক্ষিত।",
-    footerNote: "ভিসা এজেন্সি নয়। আমরা শুধুমাত্র যাচাইকৃত পেশাদারদের সাথে সদস্যদের সংযুক্ত করি।"
+    footerNote: "ভিসা এজেন্সি নয়। আমরা শুধুমাত্র যাচাইকৃত পেশাদারদের সাথে সদস্যদের সংযোগ করি।"
   }
 };
 
 export default function HomePage() {
   const { language } = useLanguage();
   const t = TRANSLATIONS[language];
+  const router = useRouter();
   
   const [complianceSettings, setComplianceSettings] = useState<{
     trade_license_no: string;
@@ -245,6 +250,7 @@ export default function HomePage() {
     company_registration_no: string | null;
     display_on_home: boolean;
   } | null>(null);
+  const [bdTime, setBdTime] = useState("");
 
   useEffect(() => {
     // Fetch compliance settings for public display
@@ -263,6 +269,28 @@ export default function HomePage() {
     };
 
     fetchComplianceSettings();
+  }, []);
+
+  useEffect(() => {
+    const updateTime = () => {
+      const time = nowBD();
+      setBdTime(time.toLocaleString("en-US", {
+        timeZone: "Asia/Dhaka",
+        weekday: "long",
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+      }));
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -318,23 +346,23 @@ export default function HomePage() {
       `}</style>
 
       <div className="min-h-screen bg-background">
-        <AppHeader />
-
-        {/* Language Selector Box - Above Hero */}
-        <section className="bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-900 py-4 sm:py-8">
-          <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 border-blue-100 dark:border-blue-900 p-5 sm:p-8">
-                <h2 className="text-2xl font-semibold text-center text-gray-900 dark:text-gray-100 mb-4 sm:mb-6">
-                  {t.chooseLanguage}
-                </h2>
-                <div className="flex justify-center">
-                  <LanguageSelector variant="default" showLabel={false} />
-                </div>
-              </div>
-            </div>
+        <MainHeader />
+        
+        {/* Bangladesh Time Clock */}
+        <div className="bg-background border-b">
+          <div className="container mx-auto px-4 py-2">
+            <p className="text-sm text-muted-foreground text-center">
+              <span className="font-medium">Bangladesh Platform</span> — {bdTime}
+            </p>
           </div>
-        </section>
+        </div>
+        
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-end gap-4">
+            <LanguageSelector variant="compact" showLabel={true} />
+            <ThemeSwitch />
+          </div>
+        </div>
 
         {/* Hero Image - Full Width */}
         <section className="w-full bg-white dark:bg-gray-900 pt-6 pb-6">
@@ -650,47 +678,8 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="bg-gray-900 text-gray-300 py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid md:grid-cols-3 gap-8">
-              <div>
-                <h3 className="text-white font-semibold text-lg mb-4">MigrateSafely.com</h3>
-                <p className="text-sm">
-                  {t.footerTagline}
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold text-lg mb-4">{t.footerQuickLinks}</h3>
-                <ul className="space-y-2 text-sm">
-                  <li><Link href="/about" className="hover:text-white">{t.footerAbout}</Link></li>
-                  <li><Link href="/winners" className="hover:text-white">{t.footerWinners}</Link></li>
-                  <li><Link href="/embassy-directory" className="hover:text-white">{t.footerEmbassy}</Link></li>
-                  <li><Link href="/signup" className="hover:text-white">{t.footerSignup}</Link></li>
-                  <li><Link href="/login" className="hover:text-white">{t.footerLogin}</Link></li>
-                </ul>
-              </div>
-
-              <div>
-                <h3 className="text-white font-semibold text-lg mb-4">{t.footerMemberResources}</h3>
-                <ul className="space-y-2 text-sm">
-                  <li><Link href="/dashboard" className="hover:text-white">{t.footerDashboard}</Link></li>
-                  <li><Link href="/request-agent" className="hover:text-white">{t.footerRequestAgent}</Link></li>
-                  <li><Link href="/scam-reports" className="hover:text-white">{t.footerScamReports}</Link></li>
-                  <li><Link href="/prize-draw" className="hover:text-white">{t.footerPrizeDraw}</Link></li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
-              <p>&copy; {new Date().getFullYear()} MigrateSafely.com. {t.footerCopyright}</p>
-              <p className="mt-2 text-gray-500">
-                {t.footerNote}
-              </p>
-            </div>
-          </div>
-        </footer>
+        {/* Footer - Now using PublicFooter component */}
+        <PublicFooter />
       </div>
     </>
   );

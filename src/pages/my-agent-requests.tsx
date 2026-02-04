@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,13 +54,13 @@ const TEXT = {
     loginRequired: "Please log in to view your requests"
   },
   bn: {
-    pageTitle: "আমার এজেন্ট অনুরোধ | নিরাপদে মাইগ্রেট করুন",
-    metaDescription: "আপনার এজেন্ট অনুরোধ দেখুন এবং পরিচালনা করুন",
-    title: "আমার এজেন্ট অনুরোধ",
-    subtitle: "আপনার এজেন্ট সহায়তা অনুরোধের স্ট্যাটাস ট্র্যাক করুন",
-    newRequest: "নতুন এজেন্ট অনুরোধ করুন",
-    noRequests: "এখনও কোন এজেন্ট অনুরোধ নেই",
-    noRequestsDesc: "ব্যক্তিগত মাইগ্রেশন সহায়তা পেতে আপনার প্রথম এজেন্ট অনুরোধ জমা দিন",
+    pageTitle: "আমার এজেন্ট অনোধ | নিরাপদে মাইগ্রেট করুন",
+    metaDescription: "আপনার এজেন্ট অনোধ দেখুন এবং পরিচালনা করুন",
+    title: "আমার এজেন্ট অনোধ",
+    subtitle: "আপনার এজেন্ট সহায়তা অনোধের স্ট্যাটাস ট্র্যাক করুন",
+    newRequest: "নতুন এজেন্ট অনোধ করুন",
+    noRequests: "এখনও কোন এজেন্ট অনোধ নেই",
+    noRequestsDesc: "ব্যক্তিগত মাইগ্রেশন সহায়তা পেতে আপনার প্রথম এজেন্ট অনোধ জমা দিন",
     status: {
       SUBMITTED: "জমা দেওয়া হয়েছে",
       UNDER_REVIEW: "পর্যালোচনাধীন",
@@ -91,7 +91,7 @@ const TEXT = {
       error: "মতামত জমা দিতে ব্যর্থ"
     },
     loading: "অনুরোধ লোড হচ্ছে...",
-    loginRequired: "আপনার অনুরোধ দেখতে দয়া করে লগইন করুন"
+    loginRequired: "আপনার অনোধ দেখতে দয়া করে লগইন করুন"
   }
 };
 
@@ -264,7 +264,7 @@ export default function MyAgentRequestsPage() {
           <meta name="description" content={t.metaDescription} />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-          <AppHeader />
+          <MainHeader />
           <main className="container mx-auto px-4 py-8 max-w-4xl">
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -283,7 +283,7 @@ export default function MyAgentRequestsPage() {
           <meta name="description" content={t.metaDescription} />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-          <AppHeader />
+          <MainHeader />
           <main className="container mx-auto px-4 py-8 max-w-4xl">
             <Card>
               <CardHeader>
@@ -309,7 +309,7 @@ export default function MyAgentRequestsPage() {
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <AppHeader />
+        <MainHeader />
 
         <main className="container mx-auto px-4 py-8 max-w-4xl">
           <div className="flex items-center justify-between mb-8">

@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AppHeader } from "@/components/AppHeader";
+import { PublicFooter } from "@/components/PublicFooter";
 import { MapPin, Phone, Mail, Globe as GlobeIcon, Loader2, Building2, ChevronDown } from "lucide-react";
 import {
   Accordion,
@@ -9,6 +9,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { MainHeader } from "@/components/MainHeader";
 
 const TEXT = {
   en: {
@@ -113,9 +114,9 @@ export default function EmbassyDirectoryPage() {
         <meta name="description" content={t.metaDescription} />
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <AppHeader />
+      <MainHeader />
 
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <main className="container mx-auto px-4 py-8 max-w-6xl">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-3 mb-4">
@@ -298,6 +299,8 @@ export default function EmbassyDirectoryPage() {
           )}
         </main>
       </div>
+
+      <PublicFooter />
     </>
   );
 }

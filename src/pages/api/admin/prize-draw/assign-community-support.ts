@@ -1,5 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
+import { communityPrizeAwardService } from "@/services/communityPrizeAwardService";
 
 interface AssignCommunitySupport {
   drawId: string;
@@ -14,6 +18,10 @@ interface AssignResponse {
   error?: string;
 }
 
+/**
+ * Assign Community Support Prize to a specific member
+ * ADMIN ONLY: Restricted to Chairman
+ */
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<AssignResponse>
@@ -22,29 +30,16 @@ export default async function handler(
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  // Require admin role
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Authenticate user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    // Check Super Admin role
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== "super_admin") {
-      return res.status(403).json({
-        success: false,
-        error: "Forbidden: Super Admin access required",
-      });
+    // Only Chairman can manually assign community prizes
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     const { drawId, prizeId, winnerUserId, reason }: AssignCommunitySupport = req.body;
@@ -165,7 +160,7 @@ export default async function handler(
         prize_id: prizeId,
         winner_user_id: winnerUserId,
         award_type: "COMMUNITY_SUPPORT",
-        selected_by_admin_id: user.id,
+        selected_by_admin_id: auth.userId,
         selected_at: now.toISOString(),
         claim_status: "PENDING",
         claim_deadline_at: claimDeadline.toISOString(),

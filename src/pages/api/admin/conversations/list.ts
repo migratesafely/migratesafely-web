@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 /**
  * Admin Conversation Management: List all agent-member conversations
@@ -13,34 +15,15 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get authorization token
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "No authorization token" });
-    }
-
-    // Verify user session
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    // Check if user is admin
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    if (!["super_admin", "manager_admin", "worker_admin"].includes(profile.role)) {
-      return res.status(403).json({ error: "Admin access required" });
+    // Only Chairman can list conversations
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Get query parameters for filtering

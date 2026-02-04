@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Search, Send, User, Mail, MapPin, Hash, AlertCircle } from "lucide-react";
+import { MainHeader } from "@/components/MainHeader";
 
 interface SearchResult {
   userId: string;
@@ -49,10 +50,10 @@ export default function AdminPeopleLookup() {
   const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
-    checkAuth();
+    checkAccess();
   }, []);
 
-  const checkAuth = async () => {
+  async function checkAccess() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -67,17 +68,17 @@ export default function AdminPeopleLookup() {
         .eq("id", session.user.id)
         .single();
 
-      if (!profile || !["worker_admin", "manager_admin", "super_admin"].includes(profile.role)) {
+      if (!profile || !["worker_admin", "manager_admin", "chairman"].includes(profile.role)) {
         router.push("/dashboard");
         return;
       }
 
       setLoading(false);
     } catch (err) {
-      console.error("Auth error:", err);
-      router.push("/login");
+      console.error("Error checking access:", err);
+      router.push("/admin");
     }
-  };
+  }
 
   const handleSearch = async () => {
     if (!searchTerm.trim()) {

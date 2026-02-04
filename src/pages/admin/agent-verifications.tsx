@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,13 +25,13 @@ export default function AgentVerificationsAdminPage() {
   const [messageBody, setMessageBody] = useState("");
   const [processing, setProcessing] = useState(false);
   const [outcome, setOutcome] = useState<string>("");
+  const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    checkAdminAndLoadData();
-  }, [activeTab]);
+    checkAccess();
+  }, []);
 
-  const checkAdminAndLoadData = async () => {
-    setLoading(true);
+  async function checkAccess() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -39,15 +39,22 @@ export default function AgentVerificationsAdminPage() {
         return;
       }
 
-      // Check admin role
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      if (!profile || !["super_admin", "manager_admin", "worker_admin"].includes(profile.role)) {
-        router.push("/dashboard");
+      if (!isChairman && !["manager_admin", "worker_admin"].includes(profile?.role || "")) {
+        router.push("/admin");
         return;
       }
 
@@ -70,9 +77,8 @@ export default function AgentVerificationsAdminPage() {
       if (error) throw error;
       setVerifications(data || []);
     } catch (error) {
-      console.error("Error loading verifications:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   };
 
@@ -127,7 +133,7 @@ export default function AgentVerificationsAdminPage() {
       });
 
       // Refresh data
-      checkAdminAndLoadData();
+      checkAccess();
       setSelectedVerification(null);
       setOutcome("");
       setAdminNote("");
@@ -164,6 +170,34 @@ export default function AgentVerificationsAdminPage() {
     }
   };
 
+  async function handleReject(agentId: string, reason: string) {
+    setProcessing(true);
+    setError("");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      // Check if user is Chairman
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      if (!isChairman) {
+        setError("Only Chairman can reject agents");
+        setProcessing(false);
+        return;
+      }
+    } catch (error) {
+      console.error("Error rejecting agent:", error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const filteredVerifications = verifications.filter(v => 
     v.agent_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     v.membership_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -185,7 +219,7 @@ export default function AgentVerificationsAdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AppHeader />
+      <MainHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">

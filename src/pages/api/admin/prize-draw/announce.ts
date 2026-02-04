@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { prizeDrawService } from "@/services/prizeDrawService";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 interface AnnounceDrawRequest {
   drawId: string;
@@ -21,31 +24,25 @@ interface AnnounceDrawResponse {
   error?: string;
 }
 
+/**
+ * Announce prize draw winners
+ * ADMIN ONLY: Restricted to Chairman
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse<AnnounceDrawResponse>) {
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  // Require admin role
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    // Check if user is super admin
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== "super_admin") {
-      return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+    // Only Chairman can announce winners
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Parse request body
@@ -56,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     }
 
     // Call service to announce draw
-    const announceResult = await prizeDrawService.announceDraw(drawId, user.id);
+    const announceResult = await prizeDrawService.announceDraw(drawId, auth.userId);
 
     if (!announceResult.success) {
       return res.status(500).json({ success: false, error: announceResult.error || "Failed to announce draw" });

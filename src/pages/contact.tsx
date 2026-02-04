@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Clock, MapPin, MessageSquare, Shield, Users, FileText } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -103,7 +103,7 @@ const TRANSLATIONS = {
     ],
     emailLabel: "আমাদের ইমেল করুন:",
     locationLabel: "অবস্থান:",
-    locationValue: "🇬🇧 সদর দপ্তর: লন্ডন, যুক্তরাজ্য\n🇧🇩 সিস্টার কনসার্ন / আঞ্চলিক অফিস: ঢাকা, বাংলাদেশ",
+    locationValue: "🇬🇧 সদর দুন যুক্তরাজ্য\n🇧🇩 সিস্টার কনসার্ন / আঞ্চলিক অফিস: ঢাকা, বাংলাদেশ",
     messageLabel: "আমাদের মেসেজ করুন:",
   }
 };
@@ -119,7 +119,7 @@ export default function Contact() {
         <meta name="description" content={t.metaDescription} />
       </Head>
 
-      <AppHeader />
+      <MainHeader />
 
       <main>
         {/* Hero Section */}

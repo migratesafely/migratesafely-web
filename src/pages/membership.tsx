@@ -1,7 +1,8 @@
 import Head from "next/head";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
+import { PublicFooter } from "@/components/PublicFooter";
 import { Check, Shield, Users, Award, TrendingUp, Calendar, Globe, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,7 +68,7 @@ const TRANSLATIONS = {
     validityTitle: "৩৬৫ দিনের বৈধতা",
     validityDesc: "সমস্ত বৈশিষ্ট্যগুলিতে সুরক্ষা এবং অ্যাক্সেসের সম্পূর্ণ বছর",
     scamProtectionTitle: "প্রতারণা সুরক্ষা",
-    scamProtectionDesc: "যাচাইকৃত প্রতারণা রিপোর্ট এবং ব্ল্যাকলিস্ট ডেটাবেসে অ্যাক্সেস",
+    scamProtectionDesc: "যাচাইকৃত প্রতারিক্ত রিপোর্ট এবং ব্ল্যাকলিস্ট ডেটাবেসে অ্যাক্সেস",
     verifiedAgentsTitle: "যাচাইকৃত এজেন্ট সংযোগ",
     verifiedAgentsDesc: "পূর্ব-যাচাইকৃত, বিশ্বস্ত অভিবাসন এজেন্টদের সাথে সংযোগ করুন",
     prizeDrawsTitle: "স্বয়ংক্রিয় পুরস্কার ড্র",
@@ -89,7 +90,7 @@ const TRANSLATIONS = {
     ongoingUpdatesDesc: "সর্বশেষ প্রতারণা সতর্কতা এবং তথ্যে ক্রমাগত অ্যাক্সেস",
     faqTitle: "প্রায়শই জিজ্ঞাসিত প্রশ্ন",
     faq1Q: "সদস্যপদ কি বিনামূল্যে?",
-    faq1A: "না। MigrateSafely যাচাইকৃত সেবা, প্রতারণা প্রতিরোধ এবং চলমান সদস্য সুরক্ষা নিশ্চিত করতে একটি পেইড বার্ষিক সদস্যপদ মডেলে কাজ করে।",
+    faq1A: "না। MigrateSafely যাচাইকৃত সেবা, প্রতারিক্ত প্রতিরোধ এবং চলমান সদস্য সুরক্ষা নিশ্চিত করতে একটি পেইড বার্ষিক সদস্যপদ মডেলে কাজ করে।",
     faq2Q: "সদস্যপদ কতদিন বৈধ?",
     faq2A: "সক্রিয়করণের তারিখ থেকে সদস্যপদ ৩৬৫ দিনের জন্য বৈধ। মেয়াদ শেষ হওয়ার আগে আপনি নবায়ন অনুস্মারক পাবেন।",
     faq3Q: "আপনি কোন পেমেন্ট পদ্ধতি গ্রহণ করেন?",
@@ -118,8 +119,8 @@ export default function MembershipPage() {
         <title>{t.pageTitle}</title>
         <meta name="description" content={t.metaDescription} />
       </Head>
-      <AppHeader />
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <MainHeader />
+      <div className="min-h-screen bg-background">
         {/* Hero Section */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto text-center">

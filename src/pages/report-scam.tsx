@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, Upload, X, User } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 
 export default function ReportScam() {
   const router = useRouter();
@@ -177,7 +177,7 @@ export default function ReportScam() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <AppHeader />
+      <MainHeader />
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <Card>
           <CardHeader>

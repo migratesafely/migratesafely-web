@@ -1,108 +1,105 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/router";
-import { authService } from "@/services/authService";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle } from "lucide-react";
-import Head from "next/head";
+import { Loader2 } from "lucide-react";
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
   const router = useRouter();
+  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  useEffect(() => {
-    checkIfAlreadyLoggedIn();
-  }, []);
-
-  async function checkIfAlreadyLoggedIn() {
-    try {
-      const user = await authService.getCurrentUser();
-      if (user) {
-        const profile = await authService.getUserProfile(user.id);
-        if (profile && authService.isAdmin(profile.role)) {
-          router.push("/admin");
-        }
-      }
-    } catch (error) {
-      console.error("Error checking auth:", error);
-    }
-  }
+  const [error, setError] = useState("");
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    setErrorMessage("");
+    setLoading(true);
+    setError("");
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage("Please enter your credentials");
+    if (!email || !password) {
+      setError("Please enter both email and password");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        router.push("/admin");
+      }
+    } catch (err) {
+      console.error("Admin login error:", err);
+      setError("An unexpected error occurred. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      setError("Please enter your email address first");
       return;
     }
 
     setLoading(true);
+    setError("");
 
     try {
-      const { user, error } = await authService.signIn(email.trim(), password);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/admin/login`,
+      });
 
-      if (error || !user) {
-        setErrorMessage("Invalid credentials");
-        setLoading(false);
-        return;
+      if (error) {
+        setError(error.message);
+      } else {
+        setError("Password reset email sent. Check your inbox.");
       }
-
-      const profile = await authService.getUserProfile(user.id);
-      
-      if (!profile) {
-        setErrorMessage("Invalid credentials");
-        setLoading(false);
-        return;
-      }
-
-      if (!authService.isAdmin(profile.role)) {
-        await authService.signOut();
-        setErrorMessage("Invalid credentials");
-        setLoading(false);
-        return;
-      }
-
-      router.push("/admin");
-    } catch (error) {
-      console.error("Error during login:", error);
-      setErrorMessage("An error occurred. Please try again.");
+    } catch (err) {
+      console.error("Password reset error:", err);
+      setError("Failed to send reset email. Please try again.");
+    } finally {
       setLoading(false);
     }
   }
 
   return (
-    <>
-      <Head>
-        <title>Sign In</title>
-        <meta name="robots" content="noindex, nofollow, noarchive" />
-        <meta name="googlebot" content="noindex, nofollow" />
-      </Head>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md shadow-lg">
-          <CardHeader className="text-center pb-6">
-            <CardTitle className="text-2xl font-bold text-foreground">
-              Sign in
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="flex items-center justify-center p-4 py-20">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-3xl font-bold text-center">
+              Admin Login
             </CardTitle>
+            <CardDescription className="text-center text-base">
+              Sign in to access admin panel
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-6">
+            <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Username</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
+                  placeholder="admin@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                  disabled={loading}
                   required
+                  autoComplete="email"
                 />
               </div>
 
@@ -111,19 +108,19 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type="password"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  disabled={loading}
                   required
+                  autoComplete="current-password"
                 />
               </div>
 
               <Button
                 type="submit"
+                disabled={loading}
                 className="w-full"
                 size="lg"
-                disabled={loading}
               >
                 {loading ? (
                   <>
@@ -131,26 +128,30 @@ export default function LoginPage() {
                     Signing in...
                   </>
                 ) : (
-                  "Sign in"
+                  "Sign In"
                 )}
               </Button>
 
-              {errorMessage && (
+              {error && (
                 <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{errorMessage}</AlertDescription>
+                  <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
             </form>
 
             <div className="mt-6 pt-6 border-t text-center">
-              <p className="text-sm text-muted-foreground">
-                All login attempts are monitored.
-              </p>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Forgot your password?
+              </button>
             </div>
           </CardContent>
         </Card>
       </div>
-    </>
+    </div>
   );
 }

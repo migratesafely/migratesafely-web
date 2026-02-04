@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { prizeDrawService } from "@/services/prizeDrawService";
 
 interface Prize {
@@ -27,26 +29,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  // Require admin role
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    // Check if user is super admin
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== "super_admin") {
-      return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+    // AUTHORITY: Chairman only (for managing)
+    // Note: Other admins might need read access, but creating/managing is Chairman only.
+    // For listing, we might allow other admins if needed, but for now enforcing Chairman to be safe per instructions.
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Get drawId from query

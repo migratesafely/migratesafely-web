@@ -2,21 +2,14 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { requireAdminRole } from "@/lib/apiMiddleware";
 import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 /**
  * GOVERNANCE POLICY: Agent Approval Endpoint
  * 
  * STRICT AUTHORITY RULES:
- * - ONLY super_admin and manager_admin roles can approve agents
- * - worker_admin, staff, agents, and members are PROHIBITED
- * 
- * RATIONALE:
- * Agent approvals are restricted to Admin/Super Admin to prevent:
- * 1. Conflicts of interest (agents approving other agents)
- * 2. Corruption or favoritism
- * 3. Unauthorized access escalation
- * 
- * This is a non-negotiable governance requirement for platform integrity.
+ * - ONLY Chairman (employees.role_category = 'chairman') can approve agents
+ * - super_admin, manager_admin, worker_admin, staff, agents, and members are PROHIBITED
  */
 export default async function handler(
   req: NextApiRequest,
@@ -33,9 +26,11 @@ export default async function handler(
   try {
     const { agent_user_id, reason } = req.body;
 
-    // STRICT ENFORCEMENT: Only super_admin and manager_admin
-    // This prevents worker_admin, staff, agents, and members from approving
-    if (!["super_admin", "manager_admin"].includes(auth.userRole)) {
+    // STRICT ENFORCEMENT: Only Chairman can approve
+    // LEGACY: super_admin/manager_admin checks removed
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+
+    if (!isChairman) {
       // Log unauthorized attempt for audit trail
       await logAdminAction({
         actorId: auth.userId,
@@ -43,14 +38,14 @@ export default async function handler(
         targetUserId: agent_user_id,
         details: {
           attempted_role: auth.userRole,
-          reason: "Agent approvals are restricted to Admin/Super Admin to prevent conflicts of interest or corruption",
+          reason: "Agent approvals are restricted to Chairman",
           governance_policy: "STRICT_APPROVAL_AUTHORITY"
         },
       });
 
       return res.status(403).json({ 
-        error: "Forbidden: Agent approvals are restricted to Admin and Super Admin roles only",
-        governance_policy: "Agent approvals are restricted to Admin/Super Admin to prevent conflicts of interest or corruption"
+        error: "Forbidden: Agent approvals are restricted to Chairman only",
+        governance_policy: "Agent approvals are restricted to Chairman"
       });
     }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,10 +40,10 @@ export default function AdminMessagesPage() {
   const [recentBroadcasts, setRecentBroadcasts] = useState<BroadcastHistory[]>([]);
 
   useEffect(() => {
-    checkAdminAndInit();
+    checkAccess();
   }, []);
 
-  async function checkAdminAndInit() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
 
@@ -52,29 +52,30 @@ export default function AdminMessagesPage() {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
+      const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      if (profileError || !profile) {
-        router.push("/dashboard");
-        return;
-      }
-
-      if (!["super_admin", "manager_admin"].includes(profile.role)) {
-        router.push("/dashboard");
+      if (!isChairman && !["manager_admin", "worker_admin"].includes(profile?.role || "")) {
+        router.push("/admin");
         return;
       }
 
       setIsAdmin(true);
       await loadRecentBroadcasts();
     } catch (error) {
-      console.error("Error checking admin status:", error);
-      router.push("/dashboard");
-    } finally {
-      setLoading(false);
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
   }
 
@@ -217,7 +218,7 @@ export default function AdminMessagesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -240,7 +241,7 @@ export default function AdminMessagesPage() {
       </Head>
 
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-8">
             <div>

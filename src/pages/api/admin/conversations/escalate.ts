@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { agentRequestTimelineService } from "@/services/agentRequestTimelineService";
 
 /**
@@ -14,34 +16,15 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get authorization token
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "No authorization token" });
-    }
-
-    // Verify user session
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    // Check if user is admin
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role, full_name, email")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    if (!["super_admin", "manager_admin", "worker_admin"].includes(profile.role)) {
-      return res.status(403).json({ error: "Admin access required" });
+    // Only Chairman can escalate conversations
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     const { request_id, reason, escalation_notes } = req.body;
@@ -77,7 +60,7 @@ export default async function handler(
       .from("agent_requests")
       .update({
         status: "ESCALATED",
-        admin_notes: `${request.admin_notes || ""}\n[Escalated by ${profile.role} on ${new Date().toISOString()}: ${reason.trim()}]${escalation_notes ? `\nNotes: ${escalation_notes.trim()}` : ""}`.trim(),
+        admin_notes: `${request.admin_notes || ""}\n[Escalated by ${auth.userRole} on ${new Date().toISOString()}: ${reason.trim()}]${escalation_notes ? `\nNotes: ${escalation_notes.trim()}` : ""}`.trim(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", request_id);
@@ -91,10 +74,10 @@ export default async function handler(
     try {
       await agentRequestTimelineService.logEscalated(
         request_id,
-        user.id,
+        auth.userId,
         "admin",
         reason.trim(),
-        profile.role
+        auth.userRole
       );
     } catch (timelineError) {
       console.error("Failed to log timeline event:", timelineError);
@@ -107,7 +90,7 @@ export default async function handler(
         .insert({
           sender_role: "system",
           subject: "Request Escalated by Admin",
-          body: `The request you were handling has been escalated by ${profile.role}.\n\nReason: ${reason.trim()}${escalation_notes ? `\n\nAdditional Notes: ${escalation_notes.trim()}` : ""}\n\nA senior admin will review and may provide further instructions.`,
+          body: `The request you were handling has been escalated by ${auth.userRole}.\n\nReason: ${reason.trim()}${escalation_notes ? `\n\nAdditional Notes: ${escalation_notes.trim()}` : ""}\n\nA senior admin will review and may provide further instructions.`,
           message_type: "system_message",
           agent_request_id: request_id,
         })
@@ -148,12 +131,12 @@ export default async function handler(
 
     // Log audit entry
     await supabase.from("audit_logs").insert({
-      admin_id: user.id,
+      admin_id: auth.userId,
       action: "REQUEST_ESCALATED",
       entity_type: "agent_request",
       entity_id: request_id,
       changes: {
-        admin_role: profile.role,
+        admin_role: auth.userRole,
         old_status,
         new_status: "ESCALATED",
         reason: reason.trim(),

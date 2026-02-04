@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { tierBonusApprovalService } from "@/services/tierBonusApprovalService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [pendingTierBonusCount, setPendingTierBonusCount] = useState(0);
   const [canApprove, setCanApprove] = useState(false);
 
@@ -36,15 +37,17 @@ export default function AdminDashboard() {
         return;
       }
 
-      if (!authService.isAdmin(profile.role)) {
+      const isAdmin = ["worker_admin", "manager_admin", "super_admin", "master_admin"].includes(profile.role);
+      if (!isAdmin) {
         router.push("/");
         return;
       }
 
       setProfile(profile);
+      setUserRole(profile.role);
       
       // Check if user can approve tier bonuses (Manager Admin or Super Admin)
-      const canApproveFlag = authService.isManagerAdmin(profile.role) || authService.isSuperAdmin(profile.role);
+      const canApproveFlag = ["manager_admin", "super_admin"].includes(profile.role);
       setCanApprove(canApproveFlag);
 
       // Load pending tier bonus approvals count (only for Manager/Super Admin)
@@ -71,7 +74,7 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -88,7 +91,7 @@ export default function AdminDashboard() {
         <title>Admin Dashboard | Migrate Safely</title>
       </Head>
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-6">
@@ -278,6 +281,26 @@ export default function AdminDashboard() {
                   </CardHeader>
                 </Card>
               </Link>
+
+              {/* System Management - Chairman Only */}
+              {userRole === "chairman" && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Shield className="h-5 w-5 text-purple-600" />
+                        System Management
+                      </CardTitle>
+                      <CardDescription>Manage system-wide settings and configurations</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Configure system-wide settings and manage user roles
+                      </p>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
             </div>
           </div>
         </main>

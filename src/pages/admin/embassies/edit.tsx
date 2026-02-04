@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -127,7 +127,7 @@ export default function EditEmbassyPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <main className="container mx-auto px-4 py-8">
           <div className="text-center">Loading embassy details...</div>
         </main>
@@ -138,7 +138,7 @@ export default function EditEmbassyPage() {
   if (!embassy) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <main className="container mx-auto px-4 py-8">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -155,7 +155,7 @@ export default function EditEmbassyPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <MainHeader />
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <Button
           variant="ghost"

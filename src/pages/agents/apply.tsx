@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
 import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,6 +26,8 @@ import {
 import { authService } from "@/services/authService";
 import { systemSettingsService } from "@/services/systemSettingsService";
 import { supabase } from "@/integrations/supabase/client";
+import { MainHeader } from "@/components/MainHeader";
+import { PublicFooter } from "@/components/PublicFooter";
 
 const TRANSLATIONS = {
   en: {
@@ -381,7 +382,10 @@ export default function BecomeAgentPage() {
           setProfile(profileData);
           // If already an agent/pending, redirect to dashboard/status
           if (["agent", "agent_pending", "agent_suspended"].includes(profileData.role)) {
-            router.push(authService.getDashboardPath(profileData.role));
+            const dashboardPath = profileData.role === "agent" ? "/agents/dashboard" : 
+                                 profileData.role === "agent_suspended" ? "/agents/suspended" : 
+                                 "/agents/pending";
+            router.push(dashboardPath);
           }
         }
       }
@@ -400,7 +404,7 @@ export default function BecomeAgentPage() {
       />
 
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-        <AppHeader />
+        <MainHeader />
 
         {/* Hero Section */}
         <section className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white py-20 overflow-hidden">

@@ -1,6 +1,7 @@
 import Head from "next/head";
 import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
+import { PublicFooter } from "@/components/PublicFooter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Users, Award, Target, Heart, Globe } from "lucide-react";
@@ -62,7 +63,7 @@ const TRANSLATIONS = {
     pageDescription: "MigrateSafely.com এর মিশন সম্পর্কে জানুন যা অভিবাসীদের স্ক্যাম থেকে রক্ষা করে এবং যাচাইকৃত পেশাদারদের সাথে সংযুক্ত করে।",
     heroTitle: "MigrateSafely.com সম্পর্কে",
     heroSubtitle: "যাচাইকৃত পেশাদারদের সাথে অভিবাসীদের সংযুক্ত করা",
-    heroDescription: "আমরা একটি বিশ্বস্ত কমিউনিটি তৈরি করছি যেখানে অভিবাসীরা নিরাপদে যাচাইকৃত এজেন্টদের সাথে সংযুক্ত করে পারে, যাচাইকৃত স্ক্যাম রিপোর্ট অ্যাক্সেস করতে পারে এবং তাদের অভিবাসন যাত্রায় রক্ষা এবং ক্ষমতায়নের জন্য ডিজাইন করা হয়েছে।",
+    heroDescription: "আমরা একটি বিশ্বস্ত কমিউনিটি তৈরি করছি যেখানে অভিবাসীরা নিরাপদে যাচাইকৃত এজেন্টদের সাথে আপনাকে মেলাই",
     missionTitle: "আমাদের মিশন",
     missionDescription: "অভিবাসীদের স্ক্যাম এবং প্রতারণা থেকে রক্ষা করা যাচাইকৃত পেশাদারদের সাথে সংযুক্ত করে এবং স্বচ্ছ, কমিউনিটি-চালিত সংস্থান প্রদান করে।",
     visionTitle: "আমাদের দৃষ্টি",
@@ -121,7 +122,7 @@ export default function AboutPage() {
       </Head>
 
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         {/* Hero Section */}
         <section className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 py-20">
@@ -429,6 +430,8 @@ export default function AboutPage() {
             </p>
           </div>
         </section>
+
+        <PublicFooter />
       </div>
     </>
   );

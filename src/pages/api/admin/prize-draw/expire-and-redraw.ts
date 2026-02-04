@@ -3,41 +3,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { prizeDrawWinnerService } from "@/services/prizeDrawWinnerService";
 import { emailService } from "@/services/emailService";
 import { prizeDrawEmailTemplates } from "@/services/prizeDrawEmailTemplates";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
+/**
+ * Manually expire a winning and redraw
+ * ADMIN ONLY: Restricted to Chairman
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  // Require admin role
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get authenticated user
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    // Verify super admin role
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== "super_admin") {
-      return res.status(403).json({
-        success: false,
-        error: "Forbidden: Super Admin access required",
-      });
+    // Only Chairman can expire and redraw
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Get request body

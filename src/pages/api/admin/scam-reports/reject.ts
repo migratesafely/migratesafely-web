@@ -1,11 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { scamReportService } from "@/services/scamReportService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
+import { requireAdminRole } from "@/lib/apiMiddleware";
 
 /**
  * POST /api/admin/scam-reports/reject
  * Reject a scam report
- * Requires Manager Admin or Super Admin role
+ * Requires Chairman access
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -13,43 +15,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Get authenticated user
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+    const auth = await requireAdminRole(req, res);
+    if (!auth) return;
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // AUTHORITY: Only Chairman can reject scam reports
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
 
-    if (authError || !user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    // Check if user is Manager Admin or Super Admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || !["manager_admin", "super_admin"].includes(profile.role)) {
-      return res.status(403).json({ error: "Forbidden: Admin access required" });
+    if (!isChairman) {
+      return res.status(403).json({ error: "Forbidden - Chairman access required" });
     }
 
     // Validate request body
-    const { reportId, reviewNotes } = req.body;
+    const { reportId, reason } = req.body;
 
     if (!reportId) {
       return res.status(400).json({ error: "Report ID is required" });
     }
 
-    if (!reviewNotes || reviewNotes.trim().length === 0) {
+    if (!reason || reason.trim().length === 0) {
       return res.status(400).json({ error: "Review notes are required for rejection" });
     }
 
     // Reject report
-    const result = await scamReportService.rejectReport(reportId, user.id, reviewNotes);
+    const result = await scamReportService.rejectReport(reportId, auth.userId, reason);
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });

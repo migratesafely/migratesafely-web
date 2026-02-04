@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -7,22 +9,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const auth = await requireAdminRole(req, res);
+    if (!auth) return; // Middleware handles rejection
 
-    if (sessionError || !session) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
+    // AUTHORITY: Only Chairman can view pending identity verifications
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+
+    if (!isChairman) {
+      return res.status(403).json({ error: "Forbidden - Chairman access required" });
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (!profile || !["super_admin", "manager_admin"].includes(profile.role)) {
-      return res.status(403).json({ success: false, error: "Admin access required" });
-    }
-
+    // Get pending verifications
     const { data: verifications, error } = await supabase
       .from("identity_verifications")
       .select(`

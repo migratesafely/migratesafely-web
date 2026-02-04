@@ -47,30 +47,32 @@ export function LanguageSelector({ variant = "default", showLabel = true }: Lang
   const displayValue = currentLanguage?.languageNameNative || "English";
 
   return (
-    <div className="flex items-center gap-2">
-      {showLabel && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">Language:</span>
-        </div>
-      )}
-      <Select value={language} onValueChange={handleLanguageChange}>
-        <SelectTrigger className={variant === "compact" ? "w-[140px]" : "w-[180px]"}>
-          <SelectValue>{displayValue}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {enabledLanguages.map((lang) => (
-            <SelectItem key={lang.languageCode} value={lang.languageCode}>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{lang.languageNameNative}</span>
-                {variant !== "compact" && (
-                  <span className="text-xs text-muted-foreground">({lang.languageNameEnglish})</span>
-                )}
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <div className="container mx-auto px-4 flex justify-end py-4">
+      <div className="flex items-center gap-2">
+        {showLabel && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Globe className="h-4 w-4" />
+            <span className="hidden sm:inline">Language:</span>
+          </div>
+        )}
+        <Select value={language} onValueChange={handleLanguageChange}>
+          <SelectTrigger className={variant === "compact" ? "w-[140px]" : "w-[180px]"}>
+            <SelectValue>{displayValue}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {enabledLanguages.map((lang) => (
+              <SelectItem key={lang.languageCode} value={lang.languageCode}>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{lang.languageNameNative}</span>
+                  {variant !== "compact" && (
+                    <span className="text-xs text-muted-foreground">({lang.languageNameEnglish})</span>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

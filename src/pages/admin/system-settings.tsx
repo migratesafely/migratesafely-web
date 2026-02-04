@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { systemSettingsService, SystemSetting } from "@/services/systemSettingsService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Loader2, Settings, Shield, AlertCircle, CheckCircle, Lock, Unlock } from "lucide-react";
 import Head from "next/head";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function SystemSettingsPage() {
   const router = useRouter();
@@ -42,6 +43,21 @@ export default function SystemSettingsPage() {
       
       if (!profile || profile.role !== "super_admin") {
         setErrorMessage("Access Denied: Super Admin privileges required");
+        setLoading(false);
+        setTimeout(() => router.push("/admin"), 2000);
+        return;
+      }
+
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+
+      if (!isChairman) {
+        setErrorMessage("Access Denied: Chairman privileges required");
         setLoading(false);
         setTimeout(() => router.push("/admin"), 2000);
         return;
@@ -137,7 +153,7 @@ export default function SystemSettingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
@@ -151,7 +167,7 @@ export default function SystemSettingsPage() {
   if (!isSuperAdmin) {
     return (
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         <div className="flex items-center justify-center py-20">
           <Alert variant="destructive" className="max-w-md">
             <AlertCircle className="h-4 w-4" />
@@ -168,7 +184,7 @@ export default function SystemSettingsPage() {
         <title>System Settings | Admin Portal</title>
       </Head>
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-6">

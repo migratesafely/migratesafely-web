@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { agentRequestTimelineService } from "@/services/agentRequestTimelineService";
 
 /**
@@ -14,44 +16,28 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get authorization token
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "No authorization token" });
-    }
-
-    // Verify user session
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-
-    // Check if user is admin with reassignment authority
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return res.status(403).json({ error: "Access denied" });
+    // Only Chairman can reassign conversations
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     const { request_id, new_agent_id, reason } = req.body;
 
     // STRICT ENFORCEMENT: Only super_admin and manager_admin can reassign
-    if (!["super_admin", "manager_admin"].includes(profile.role)) {
+    if (!["super_admin", "manager_admin"].includes(auth.userRole)) {
       // Log unauthorized attempt
       await supabase.from("audit_logs").insert({
-        admin_id: user.id,
+        admin_id: auth.userId,
         action: "AGENT_REASSIGN_DENIED",
         entity_type: "agent_request",
         entity_id: request_id,
         changes: {
-          attempted_role: profile.role,
+          attempted_role: auth.userRole,
           reason: "Worker admins cannot reassign agents",
         },
       });
@@ -127,14 +113,14 @@ export default async function handler(
 
     // Log timeline event
     try {
-      await supabase.from("agent_request_timeline").insert({
+      await (supabase as any).from("agent_request_timeline").insert({
         agent_request_id: request_id,
         event_type: "AGENT_REASSIGNED",
-        actor_id: user.id,
+        actor_id: auth.userId,
         actor_type: "admin",
-        actor_role: profile.role,
+        actor_role: auth.userRole,
         assigned_agent_id: new_agent_id,
-        assigned_by_admin_id: user.id,
+        assigned_by_admin_id: auth.userId,
         notes: `Agent reassigned from ${old_agent_id} to ${new_agent_id}. Reason: ${reason.trim()}`,
         metadata: {
           old_agent_id,
@@ -192,12 +178,12 @@ export default async function handler(
 
     // Log audit entry
     await supabase.from("audit_logs").insert({
-      admin_id: user.id,
+      admin_id: auth.userId,
       action: "AGENT_REASSIGNED",
       entity_type: "agent_request",
       entity_id: request_id,
       changes: {
-        admin_role: profile.role,
+        admin_role: auth.userRole,
         old_agent_id,
         new_agent_id,
         reason: reason.trim(),

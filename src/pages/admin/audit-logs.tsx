@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ export default function AuditLogsPage() {
   const [limit, setLimit] = useState(100);
 
   useEffect(() => {
-    checkAdminAccess();
+    checkAccess();
   }, []);
 
   useEffect(() => {
@@ -47,29 +47,42 @@ export default function AuditLogsPage() {
     filterLogs();
   }, [searchQuery, logs]);
 
-  async function checkAdminAccess() {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  async function checkAccess() {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    if (!session) {
-      router.push("/admin/login");
-      return;
+      if (!session) {
+        router.push("/admin/login");
+        return;
+      }
+
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!isChairman && profile?.role !== "manager_admin") {
+        router.push("/admin");
+        return;
+      }
+
+      await fetchLogs(session.access_token);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (!profile || !["super_admin", "manager_admin"].includes(profile.role || "")) {
-      router.push("/dashboard");
-      return;
-    }
-
-    await fetchLogs(session.access_token);
-    setLoading(false);
   }
 
   async function fetchLogs(token?: string) {
@@ -168,7 +181,7 @@ export default function AuditLogsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader />
+      <MainHeader />
       <main className="container mx-auto px-4 py-8 max-w-7xl">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">

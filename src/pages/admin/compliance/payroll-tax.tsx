@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Printer, Copy, FileText, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { MainHeader } from "@/components/MainHeader";
 
 const supabaseAny = supabase as any;
 

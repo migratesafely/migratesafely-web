@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Shield, AlertTriangle, Users, Lock, Unlock } from "lucide-react";
+import { MainHeader } from "@/components/MainHeader";
 
 interface SystemSettings {
   admin_access_suspended: boolean;

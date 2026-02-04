@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { SEO } from "@/components/SEO";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,31 +39,36 @@ export default function AdminConversationsPage() {
   const [currentUserRole, setCurrentUserRole] = useState<string>("");
 
   useEffect(() => {
-    checkAdminAndLoadConversations();
-  }, [statusFilter]);
+    checkAccess();
+  }, []);
 
-  async function checkAdminAndLoadConversations() {
-    const { data: { session } } = await supabase.auth.getSession();
+  async function checkAccess() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    if (!session) {
-      router.push("/admin/login");
-      return;
+      if (!session) {
+        router.push("/admin/login");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!profile || !["super_admin", "manager_admin", "worker_admin"].includes(profile.role)) {
+        router.push("/admin/login");
+        return;
+      }
+
+      setCurrentUserRole(profile.role);
+      await loadConversations();
+      setLoading(false);
+    } catch (error) {
+      console.error("Error checking access:", error);
+      router.push("/admin");
     }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (!profile || !["super_admin", "manager_admin", "worker_admin"].includes(profile.role)) {
-      router.push("/admin/login");
-      return;
-    }
-
-    setCurrentUserRole(profile.role);
-    await loadConversations();
-    setLoading(false);
   }
 
   async function loadConversations() {
@@ -251,7 +256,7 @@ export default function AdminConversationsPage() {
     return (
       <>
         <SEO title="Admin - Conversations" />
-        <AppHeader />
+        <MainHeader />
         <div className="container mx-auto px-4 py-8">
           <p>Loading...</p>
         </div>
@@ -262,7 +267,7 @@ export default function AdminConversationsPage() {
   return (
     <>
       <SEO title="Admin - Agent-Member Conversations" />
-      <AppHeader />
+      <MainHeader />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">Agent-Member Conversations</h1>

@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 export default async function handler(
   req: NextApiRequest,
@@ -9,28 +11,15 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get session token from Authorization header
-    const token = req.headers.authorization?.replace("Bearer ", "");
-    if (!token) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    // Verify session and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    // Check if user is admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (!profile || !["manager_admin", "super_admin"].includes(profile.role)) {
-      return res.status(403).json({ error: "Forbidden: Admin access required" });
+    // Only Chairman can toggle job published status
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     const { id, published } = req.body;
@@ -44,7 +33,7 @@ export default async function handler(
       .from("job_listings")
       .update({
         published,
-        updated_by: user.id,
+        updated_by: auth.userId,
       })
       .eq("id", id)
       .select()

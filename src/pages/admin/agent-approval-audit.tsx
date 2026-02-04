@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -54,6 +54,45 @@ export default function AgentApprovalAuditPage() {
   const [pagination, setPagination] = useState({ total: 0, limit: 50, offset: 0, has_more: false });
 
   useEffect(() => {
+    checkAccess();
+  }, []);
+
+  async function checkAccess() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
+      // Check admin role
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (!isChairman && profile?.role !== "manager_admin") {
+        router.push("/admin");
+        return;
+      }
+
+      setCurrentUserRole(profile.role);
+    } catch (error) {
+      console.error("Error checking access:", error);
+      router.push("/admin");
+    }
+  }
+
+  useEffect(() => {
     checkAccessAndLoadData();
   }, [actionFilter, dateFrom, dateTo, adminFilter, pagination.offset]);
 
@@ -67,15 +106,22 @@ export default function AgentApprovalAuditPage() {
       }
 
       // Check admin role
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      // STRICT ACCESS CONTROL: Only super_admin and manager_admin
-      if (!profile || !["super_admin", "manager_admin"].includes(profile.role)) {
-        router.push("/dashboard");
+      if (!isChairman && profile?.role !== "manager_admin") {
+        router.push("/admin");
         return;
       }
 
@@ -177,9 +223,31 @@ export default function AgentApprovalAuditPage() {
     setPagination({ ...pagination, offset: 0 });
   };
 
+  async function handleStatusAction(agentId: string, action: "approve" | "reject" | "suspend" | "reinstate", reason: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // Check if user is Chairman
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("role_category")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      const isChairman = employee?.role_category === "chairman";
+      if (!isChairman) {
+        alert("Only Chairman can perform this action");
+        return;
+      }
+    } catch (error) {
+      console.error("Error handling status action:", error);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <AppHeader />
+      <MainHeader />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}

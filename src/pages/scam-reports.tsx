@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { AppHeader } from "@/components/AppHeader";
+import { PublicFooter } from "@/components/PublicFooter";
 import { authService } from "@/services/authService";
 import { AlertTriangle, Search, Filter, Loader2, Eye, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { MainHeader } from "@/components/MainHeader";
 
 const TEXT = {
   en: {
@@ -147,7 +148,7 @@ export default function ScamReportsPage() {
       </Head>
 
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <AppHeader />
+        <MainHeader />
 
         <main className="container mx-auto px-4 py-8 max-w-6xl">
           <div className="text-center mb-8">
@@ -366,6 +367,8 @@ export default function ScamReportsPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      <PublicFooter />
     </>
   );
 }

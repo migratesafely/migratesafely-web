@@ -2,6 +2,10 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { logSuspension } from "@/services/auditLogService";
+import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 type UserRole = Database["public"]["Enums"]["user_role"];
 
@@ -14,8 +18,12 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // 1. Verify authentication
+    // 1. Verify authentication (already done by middleware, but kept for token extraction if needed, though middleware provides user info)
+    // We can rely on 'auth' object from middleware
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "Unauthorized: No token provided" });
@@ -67,6 +75,7 @@ export default async function handler(
 
     // 4. Validate request body
     const { targetUserId, suspend, reason } = req.body;
+    const adminId = targetUserId; // Alias for consistency if needed
 
     if (!targetUserId || typeof suspend !== "boolean") {
       return res.status(400).json({
@@ -91,6 +100,7 @@ export default async function handler(
     if (targetError || !targetProfile) {
       return res.status(404).json({ error: "Target user not found" });
     }
+    const adminToSuspend = targetProfile;
 
     // 7. Cannot suspend super_admin
     if (targetProfile.role === "super_admin") {
@@ -144,6 +154,18 @@ export default async function handler(
       req.headers["x-forwarded-for"] as string,
       req.headers["user-agent"] as string
     );
+
+    // Log suspension in audit trail
+    const { error: auditError } = await supabase.from("audit_logs").insert({
+      admin_id: auth.userId,
+      action: "ADMIN_SUSPENDED",
+      details: {
+        suspended_admin_id: adminId,
+        suspended_admin_email: adminToSuspend.email,
+        reason: reason,
+        suspended_by_role: "chairman"
+      }
+    });
 
     // 11. Return success
     return res.status(200).json({

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { SEO } from "@/components/SEO";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
+import { PublicFooter } from "@/components/PublicFooter";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { jobListingsService } from "@/services/jobListingsService";
 import { Button } from "@/components/ui/button";
@@ -197,9 +198,13 @@ export default function CareersPage() {
 
   return (
     <>
-      <SEO title={t.pageTitle} description={t.metaDescription} />
-      <AppHeader />
-      <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <SEO 
+        title={t.title}
+        description={t.description}
+      />
+      <MainHeader />
+      
+      <main className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-12 max-w-6xl">
           {/* Header Section */}
           <div className="text-center mb-12">
@@ -301,6 +306,8 @@ export default function CareersPage() {
           </div>
         </div>
       </main>
+      
+      <PublicFooter />
 
       {/* Job Details Modal */}
       <Dialog open={!!selectedJob} onOpenChange={() => setSelectedJob(null)}>

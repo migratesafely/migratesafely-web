@@ -1,6 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { canCreateRole, createAdminWithAuth, createAdminProfile } from "@/services/adminManagementService";
+import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 export default async function handler(
   req: NextApiRequest,

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { logAdminAction } from "@/services/auditLogService";
 
 /**
@@ -32,19 +33,11 @@ export default async function handler(
     const auth = await requireAdminRole(req, res);
     if (!auth) return; // Middleware handles rejection
 
-    // Only super admin can modify compliance settings
-    if (auth.userRole !== "super_admin") {
-      // Log unauthorized attempt
-      await logAdminAction({
-        actorId: auth.userId,
-        action: "COMPLIANCE_SETTINGS_UPDATE_ATTEMPT_DENIED",
-        details: {
-          attempted_role: auth.userRole,
-          reason: "Only Super Admin can modify compliance settings",
-        },
-      });
-
-      return res.status(403).json({ error: "Forbidden: Super admin access required" });
+    // AUTHORITY: Only Chairman can manage compliance settings
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ error: "Forbidden: Chairman access required" });
     }
 
     const {

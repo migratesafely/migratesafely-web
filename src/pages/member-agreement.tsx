@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -31,7 +31,7 @@ export default function MemberAgreementPage() {
       </Head>
 
       <div className="min-h-screen bg-background">
-        <AppHeader />
+        <MainHeader />
         
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="space-y-8">

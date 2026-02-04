@@ -2,6 +2,9 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { agentRequestService } from "@/services/agentRequestService";
 import { agentRequestTimelineService } from "@/services/agentRequestTimelineService";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { logAdminAction } from "@/services/auditLogService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 export default async function handler(
   req: NextApiRequest,
@@ -11,41 +14,15 @@ export default async function handler(
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError || !session) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    // Strict role enforcement: Only super_admin and manager_admin can update agent request status
-    if (!["super_admin", "manager_admin"].includes(profile.role)) {
-      // Log unauthorized attempt in audit_logs
-      await supabase.from("audit_logs").insert({
-        admin_id: session.user.id,
-        action: "AGENT_STATUS_UPDATE_ATTEMPT_DENIED",
-        entity_type: "agent_request",
-        entity_id: req.body.requestId,
-        changes: {
-          attempted_role: profile.role,
-          attempted_status: req.body.newStatus,
-          reason: "Worker admins are not authorized to update agent request status",
-        },
-      });
-
-      return res.status(403).json({ 
-        error: "Forbidden: Only Super Admins and Manager Admins can update agent request status. Worker Admins do not have this authority." 
-      });
+    // Only Chairman can update agent request status
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     const { requestId, newStatus, notes } = req.body;
@@ -84,9 +61,9 @@ export default async function handler(
         requestId,
         oldStatus,
         newStatus,
-        session.user.id,
+        auth.userId,
         "admin",
-        profile.role,
+        auth.userRole,
         undefined
       );
     } catch (timelineError) {

@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { AppHeader } from "@/components/AppHeader";
-import { authService } from "@/services/authService";
+import { MainHeader } from "@/components/MainHeader";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
-import { AlertTriangle } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,61 +16,44 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Check for admin suspension error
-    if (router.query.error === "admin_suspended") {
-      setError(
-        "Admin access is currently suspended. Please contact support if this is unexpected."
-      );
-    }
-  }, [router.query]);
+  const [error, setError] = useState("");
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    const redirect = router.query.redirect as string;
     setLoading(true);
-    setErrorMessage("");
+    setError("");
 
     if (!email || !password) {
-      setErrorMessage("Please enter both email and password");
+      setError("Please enter both email and password");
       setLoading(false);
       return;
     }
 
     try {
-      const { user, error } = await authService.signIn(email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      if (error || !user) {
-        setErrorMessage(error?.message || "Login failed");
+      if (error) {
+        setError(error.message);
         setLoading(false);
         return;
       }
 
-      const profile = await authService.getUserProfile(user.id);
-      
-      if (profile) {
-        // Redirect based on role
-        if (["super_admin", "manager_admin", "hr_admin"].includes(profile.role)) {
-          router.push("/admin");
-        } else {
-          router.push(redirect || authService.getDashboardPath(profile.role) || "/dashboard");
-        }
-      } else {
-        router.push(redirect || "/dashboard");
+      if (data.user) {
+        router.push("/dashboard");
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      setErrorMessage("An unexpected error occurred. Please try again.");
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("An unexpected error occurred. Please try again.");
       setLoading(false);
     }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <AppHeader />
+      <MainHeader />
       <div className="flex items-center justify-center p-4 py-20">
         <Card className="w-full max-w-md shadow-xl">
           <CardHeader className="space-y-1">
@@ -93,6 +75,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                 />
               </div>
 
@@ -105,6 +88,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="current-password"
                 />
               </div>
 
@@ -124,9 +108,9 @@ export default function LoginPage() {
                 )}
               </Button>
 
-              {errorMessage && (
+              {error && (
                 <Alert variant="destructive">
-                  <AlertDescription>{errorMessage}</AlertDescription>
+                  <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
             </form>

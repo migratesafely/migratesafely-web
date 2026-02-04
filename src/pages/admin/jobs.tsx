@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { SEO } from "@/components/SEO";
-import { AppHeader } from "@/components/AppHeader";
+import { MainHeader } from "@/components/MainHeader";
 import { authService } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,10 +118,10 @@ export default function AdminJobsPage() {
   });
 
   useEffect(() => {
-    checkAuthAndLoadJobs();
+    checkAccess();
   }, []);
 
-  async function checkAuthAndLoadJobs() {
+  async function checkAccess() {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
@@ -130,16 +130,15 @@ export default function AdminJobsPage() {
       }
 
       const profile = await authService.getUserProfile(user.id);
-      if (!profile || !["manager_admin", "super_admin"].includes(profile.role)) {
+      if (!profile || !["manager_admin", "chairman"].includes(profile.role)) {
         router.push("/admin");
         return;
       }
 
       await loadJobs();
     } catch (err) {
-      console.error("Auth error:", err);
-      setError("Authentication failed");
-      setLoading(false);
+      console.error("Error checking access:", err);
+      router.push("/admin");
     }
   }
 
@@ -449,7 +448,7 @@ export default function AdminJobsPage() {
     return (
       <>
         <SEO title="Job Management - Admin" />
-        <AppHeader />
+        <MainHeader />
         <main className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-20">
           <div className="max-w-7xl mx-auto px-4 py-8">
             <div className="flex items-center justify-center py-12">
@@ -464,7 +463,7 @@ export default function AdminJobsPage() {
   return (
     <>
       <SEO title="Job Management - Admin" />
-      <AppHeader />
+      <MainHeader />
       <main className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-20">
         <div className="max-w-7xl mx-auto px-4 py-8">
           {/* Header */}

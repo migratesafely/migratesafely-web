@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { prizeDrawService } from "@/services/prizeDrawService";
 
 interface CreatePrizeRequest {
@@ -30,31 +32,25 @@ interface CreatePrizeResponse {
   error?: string;
 }
 
+/**
+ * Create a prize for a draw
+ * ADMIN ONLY: Restricted to Chairman
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse<CreatePrizeResponse>) {
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "Method not allowed" });
   }
 
+  // Require admin role
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
   try {
-    // Get authenticated user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return res.status(401).json({ success: false, error: "Unauthorized" });
-    }
-
-    // Check if user is super admin
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== "super_admin") {
-      return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+    // Only Chairman can create prizes
+    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    
+    if (!isChairman) {
+      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
     }
 
     // Parse request body

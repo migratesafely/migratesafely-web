@@ -1,13 +1,11 @@
 import React, { useState } from "react";
 import { useRouter } from "next/router";
-import Head from "next/head";
-import { supabase } from "@/integrations/supabase/client";
+import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent } from "@/components/ui/card";
+import { authService } from "@/services/authService";
+import { MainHeader } from "@/components/MainHeader";
 
 export default function AccessPage() {
   const router = useRouter();
@@ -16,129 +14,95 @@ export default function AccessPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password,
-      });
+      const { user, error: signInError } = await authService.signIn(email, password);
 
       if (signInError) {
-        setError("Invalid credentials");
+        setError(signInError.message);
         setLoading(false);
         return;
       }
 
-      if (!data.user) {
-        setError("Invalid credentials");
-        setLoading(false);
-        return;
+      if (user) {
+        const profile = await authService.getUserProfile(user.id);
+        
+        if (!profile) {
+          setError("Profile not found");
+          setLoading(false);
+          return;
+        }
+
+        // ONLY master_admin role can access through this page
+        if (profile.role !== "master_admin") {
+          setError("Access denied");
+          await authService.signOut();
+          setLoading(false);
+          return;
+        }
+
+        // Master Admin successfully authenticated
+        router.push("/admin");
       }
-
-      // Check if user has admin role
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profileError || !profile) {
-        await supabase.auth.signOut();
-        setError("Access denied");
-        setLoading(false);
-        return;
-      }
-
-      const adminRoles = ["worker_admin", "manager_admin", "super_admin"];
-      if (!adminRoles.includes(profile.role)) {
-        await supabase.auth.signOut();
-        setError("Access denied");
-        setLoading(false);
-        return;
-      }
-
-      // Log the login attempt
-      await fetch("/api/admin/auth/log-login-attempt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: data.user.id,
-          email: data.user.email,
-          success: true,
-        }),
-      });
-
-      // Redirect to admin dashboard
-      router.push("/admin");
     } catch (err) {
-      console.error("Login error:", err);
-      setError("An error occurred");
+      setError("Authentication failed");
+      console.error(err);
+    } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <>
-      <Head>
-        <title>Sign In</title>
-        <meta name="robots" content="noindex, nofollow, noarchive" />
-      </Head>
-
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-4">
+      <SEO
+        title="Access"
+        description="System Access"
+      />
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Sign in</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
+          <CardContent className="pt-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="email"
                   type="email"
+                  placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={loading}
                   autoComplete="email"
-                  className="w-full"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
                 <Input
-                  id="password"
                   type="password"
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={loading}
                   autoComplete="current-password"
-                  className="w-full"
                 />
               </div>
+
+              {error && (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  {error}
+                </div>
+              )}
 
               <Button
                 type="submit"
                 className="w-full"
                 disabled={loading}
               >
-                {loading ? "Signing in..." : "Sign in"}
+                {loading ? "Authenticating..." : "Access"}
               </Button>
-
-              <p className="text-xs text-center text-muted-foreground mt-4">
-                All login attempts are monitored.
-              </p>
             </form>
           </CardContent>
         </Card>
