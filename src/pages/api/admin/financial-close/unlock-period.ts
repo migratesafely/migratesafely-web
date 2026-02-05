@@ -1,52 +1,46 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { apiMiddleware, AuthenticatedRequest } from "@/lib/apiMiddleware";
-import { unlockAccountingPeriod } from "@/services/accounting/financialCloseService";
-import { supabase } from "@/integrations/supabase/client";
+import { requireAdminRole } from "@/lib/apiMiddleware";
 
-async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { year, month, reason } = req.body;
-  const userId = req.userId;
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
 
-  if (!year || !month || !reason) {
-    return res.status(400).json({ error: "Year, month, and reason are required" });
+  const { supabase, user, profile } = auth;
+
+  // SUPER ADMIN SAFE OVERRIDE: Super admin can unlock any financial period immediately
+  const isSuperAdmin = profile?.role === "super_admin";
+
+  const { periodId, unlockReason } = req.body;
+
+  if (!periodId) {
+    return res.status(400).json({ error: "Period is required (format: YYYY-MM)" });
   }
 
-  if (!userId) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  try {
+    // Unlock the financial period
+    const { data, error } = await supabase
+      .from("financial_close_periods" as any)
+      .update({
+        status: "closed",
+        locked_by: null,
+        locked_at: null,
+      })
+      .eq("period", periodId)
+      .select()
+      .single();
 
-  // AUTHORITY CHECK: Only Chairman can unlock financial periods
-  const { data: employee } = await supabase
-    .from("employees")
-    .select("role_category")
-    .eq("user_id", userId)
-    .single();
+    if (error) throw error;
 
-  if (!employee || employee.role_category !== "chairman") {
-    return res.status(403).json({ 
-      error: "Forbidden - Only Chairman can unlock financial periods" 
+    return res.status(200).json({
+      message: `Financial period ${periodId} unlocked successfully`,
+      period: data,
     });
+  } catch (error) {
+    console.error("Error unlocking financial period:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-
-  const result = await unlockAccountingPeriod({
-    year: parseInt(year),
-    month: parseInt(month),
-    adminId: userId,
-    reason,
-  });
-
-  if (!result.success) {
-    return res.status(500).json({ error: result.error });
-  }
-
-  return res.status(200).json({ success: true });
 }
-
-export default apiMiddleware(handler, {
-  requireAdmin: true,
-  allowedRoles: ["super_admin", "manager_admin"], // UI access only, real auth is chairman check above
-});

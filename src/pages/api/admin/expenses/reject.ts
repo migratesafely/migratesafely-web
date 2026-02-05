@@ -1,92 +1,35 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
-import { withAuth } from "@/lib/apiMiddleware";
-import type { AuthenticatedRequest } from "@/lib/apiMiddleware";
+import { requireAdminRole } from "@/lib/apiMiddleware";
 
-async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
+  const { supabase, user } = auth;
+  const { expenseId, reason } = req.body;
+
   try {
-    const userId = req.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const { expense_request_id, rejection_reason } = req.body;
-
-    if (!expense_request_id || !rejection_reason) {
-      return res.status(400).json({ 
-        error: "Missing required fields: expense_request_id, rejection_reason" 
-      });
-    }
-
-    if (!rejection_reason.trim()) {
-      return res.status(400).json({ 
-        error: "Rejection reason cannot be empty" 
-      });
-    }
-
-    // Get user's employee record to verify authority
-    const { data: employee, error: employeeError } = await supabase
-      .from("employees")
-      .select("id, department, role_category, user_id")
-      .eq("user_id", userId)
+    const { data: expense, error } = await supabase
+      .from("expense_requests" as any)
+      .update({
+        status: "rejected",
+        rejected_at: new Date().toISOString(),
+        rejected_by: user.id,
+        rejection_reason: reason
+      })
+      .eq("id", expenseId)
+      .select()
       .single();
 
-    if (employeeError || !employee) {
-      return res.status(403).json({ 
-        error: "Access denied. Only authorized employees can reject expenses." 
-      });
-    }
+    if (error) throw error;
 
-    const role = String(employee.role_category);
-
-    // Verify user has approval authority (can reject)
-    const authorizedRoles = ["department_head", "general_manager", "managing_director", "chairman"];
-    if (!authorizedRoles.includes(role)) {
-      return res.status(403).json({ 
-        error: "You do not have authority to reject expense requests" 
-      });
-    }
-
-    // Call the reject RPC function
-    const { data, error: rejectError } = await supabase.rpc("reject_expense_request" as any, {
-      p_request_id: expense_request_id,
-      p_rejector_id: userId,
-      p_rejection_reason: rejection_reason.trim()
-    });
-
-    if (rejectError) {
-      console.error("Error in reject_expense_request:", rejectError);
-      return res.status(400).json({ 
-        error: rejectError.message || "Failed to reject expense request" 
-      });
-    }
-
-    // Parse the JSONB response
-    const result = data as any;
-
-    if (!result.success) {
-      return res.status(400).json({ 
-        error: result.message || "Rejection failed" 
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: result.message,
-      expense_request: result.expense_request
-    });
-
+    return res.status(200).json(expense);
   } catch (error) {
-    console.error("Error in expense rejection:", error);
-    return res.status(500).json({ 
-      error: "An unexpected error occurred" 
-    });
+    console.error("Error rejecting expense:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
-
-export default withAuth(handler);

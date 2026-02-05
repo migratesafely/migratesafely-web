@@ -316,8 +316,8 @@ export async function createAdmin({
   roleToCreate,
   createdBy
 }: CreateAdminRequest): Promise<CreateAdminResponse> {
-  const isChairman = await agentPermissionsService.isChairman(createdBy);
-  if (!isChairman) {
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(createdBy);
+  if (!isSuperAdmin) {
     return {
       success: false,
       error: "Forbidden: Chairman access required"
@@ -448,8 +448,8 @@ export async function suspendAdmin({
   reason,
   suspendedBy
 }: SuspendAdminRequest): Promise<SuspendAdminResponse> {
-  const isChairman = await agentPermissionsService.isChairman(suspendedBy);
-  if (!isChairman) {
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(suspendedBy);
+  if (!isSuperAdmin) {
     return {
       success: false,
       error: "Forbidden: Chairman access required"
@@ -506,8 +506,8 @@ export async function suspendAdmin({
 export async function getAdminHierarchy(requesterId: string) {
   try {
     // Check if requester is Chairman
-    const isChairman = await agentPermissionsService.isChairman(requesterId);
-    if (!isChairman) {
+    const isSuperAdmin = await agentPermissionsService.isSuperAdmin(requesterId);
+    if (!isSuperAdmin) {
       return {
         success: false,
         error: "Forbidden: Chairman access required",

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "@/services/notificationService";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -47,6 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq("user_id", session.user.id)
       .single();
 
+    let verificationId = existing?.id;
+
     if (existing) {
       if (existing.status === "APPROVED") {
         return res.status(400).json({ success: false, error: "Identity already verified" });
@@ -74,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (updateError) throw updateError;
     } else {
-      const { error: insertError } = await supabase
+      const { data: inserted, error: insertError } = await supabase
         .from("identity_verifications")
         .insert({
           user_id: session.user.id,
@@ -90,9 +93,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id_back_url: idBackUrl || null,
           selfie_url: selfieUrl || null,
           status: "PENDING",
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
+      verificationId = inserted.id;
+    }
+
+    // Notify Super Admin
+    if (verificationId) {
+      await notificationService.notifyAdmins(
+        "super_admin",
+        "identity_verification",
+        "New Identity Verification",
+        `New identity verification submitted`,
+        {
+          referenceId: verificationId,
+          referenceType: "identity_verification"
+        }
+      );
     }
 
     return res.status(200).json({ success: true });

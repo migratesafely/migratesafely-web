@@ -64,9 +64,10 @@ export default async function handler(
     }
 
     // Check permissions - only Chairman can update admin roles
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
+    const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
     }
 
     // 4. Validate request body

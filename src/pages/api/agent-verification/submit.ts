@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "@/services/notificationService";
 import formidable from "formidable";
 import fs from "fs/promises";
 
@@ -148,10 +149,22 @@ export default async function handler(
       .select()
       .single();
 
-    if (insertError) {
-      console.error("Insert error:", insertError);
+    if (insertError || !request) {
+      console.error("Error inserting agent verification request:", insertError);
       return res.status(500).json({ error: "Failed to submit verification request" });
     }
+
+    // Notify Super Admin
+    await notificationService.notifyAdmins(
+      "super_admin",
+      "agent_verification",
+      "New Agent Verification Request",
+      `New agent verification request for ${agentName}`,
+      {
+        referenceId: request.id,
+        referenceType: "agent_verification"
+      }
+    );
 
     // Send notification to admin team
     await supabase

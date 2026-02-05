@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "./notificationService";
 
 export interface DocumentVerificationRequest {
   requestId: string;
@@ -43,20 +44,29 @@ export const documentVerificationService = {
         p_document_type_other: documentTypeOther,
       });
 
-      if (error) {
-        console.error("Error submitting document verification request:", error);
-        return { success: false, error: error.message };
+      if (error || !data) {
+        console.error("Failed to create document verification request:", error);
+        return { success: false, error: "Failed to create verification request" };
       }
 
-      if (!data || data.length === 0) {
-        return { success: false, error: "Failed to create request" };
+      const requestData = Array.isArray(data) ? data[0] : data;
+      const requestId = requestData?.request_id;
+
+      if (requestId) {
+        // Notify Super Admin
+        await notificationService.notifyAdmins(
+          "super_admin",
+          "document_verification",
+          "New Document Verification",
+          `New ${documentType} verification request`,
+          {
+            referenceId: requestId,
+            referenceType: "document_verification"
+          }
+        );
       }
 
-      return {
-        success: true,
-        ticketReference: data[0].ticket_reference,
-        requestId: data[0].request_id,
-      };
+      return { success: true, requestId: requestId };
     } catch (error) {
       console.error("Error in submitRequest:", error);
       return { success: false, error: "An unexpected error occurred" };

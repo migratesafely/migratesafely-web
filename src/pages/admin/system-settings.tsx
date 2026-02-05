@@ -48,18 +48,13 @@ export default function SystemSettingsPage() {
         return;
       }
 
-      const { data: employee } = await supabase
-        .from("employees")
-        .select("role_category")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      // Check if user is chairman
+      const { data: employee } = await supabase.from("employees").select("role_category").eq("user_id", user.id).maybeSingle();
 
       const isChairman = employee?.role_category === "chairman";
 
       if (!isChairman) {
-        setErrorMessage("Access Denied: Chairman privileges required");
-        setLoading(false);
-        setTimeout(() => router.push("/admin"), 2000);
+        router.push("/dashboard");
         return;
       }
 

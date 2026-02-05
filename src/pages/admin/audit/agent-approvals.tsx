@@ -50,6 +50,7 @@ export default function AgentApprovalsAuditPage() {
         return;
       }
 
+      // Check if user is chairman or manager_admin
       const { data: employee } = await supabase
         .from("employees")
         .select("role_category")
@@ -57,15 +58,12 @@ export default function AgentApprovalsAuditPage() {
         .maybeSingle();
 
       const isChairman = employee?.role_category === "chairman";
-      
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+
+      // Get profile role
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
 
       if (!isChairman && profile?.role !== "manager_admin") {
-        router.push("/admin");
+        router.push("/dashboard");
         return;
       }
 

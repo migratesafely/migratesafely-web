@@ -350,9 +350,9 @@ export default function HomePage() {
         
         {/* Bangladesh Time Clock */}
         <div className="bg-background border-b">
-          <div className="container mx-auto px-4 py-2">
-            <p className="text-sm text-muted-foreground text-center">
-              <span className="font-medium">Bangladesh Platform</span> — {bdTime}
+          <div className="container mx-auto px-4 py-1">
+            <p className="text-[10px] leading-tight font-normal text-muted-foreground/70">
+              <span>Bangladesh Platform</span> — {bdTime}
             </p>
           </div>
         </div>
@@ -661,15 +661,15 @@ export default function HomePage() {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400 font-medium">
-                Company Registration No:
+                Operating under license:
               </span>
-              <span className="text-gray-900 dark:text-gray-100 font-mono text-sm">
-                {complianceSettings?.company_registration_no || "PENDING"}
+              <span className="text-gray-900 dark:text-gray-100 font-medium">
+                Migrate Safely Ltd (Bangladesh)
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400 font-medium">
-                Operating Country:
+                {t.complianceCountry}
               </span>
               <span className="text-gray-900 dark:text-gray-100 font-medium">
                 Bangladesh 🇧🇩

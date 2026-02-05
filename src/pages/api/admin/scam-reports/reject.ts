@@ -18,17 +18,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const auth = await requireAdminRole(req, res);
     if (!auth) return;
 
-    // AUTHORITY: Only Chairman can reject scam reports
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
 
-    if (!isChairman) {
-      return res.status(403).json({ error: "Forbidden - Chairman access required" });
+    if (!isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super Admin access required" });
     }
 
     // Validate request body
-    const { reportId, reason } = req.body;
+    const { id, reason } = req.body;
 
-    if (!reportId) {
+    if (!id) {
       return res.status(400).json({ error: "Report ID is required" });
     }
 
@@ -37,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Reject report
-    const result = await scamReportService.rejectReport(reportId, auth.userId, reason);
+    const result = await scamReportService.rejectReport(id, auth.userId, reason);
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });

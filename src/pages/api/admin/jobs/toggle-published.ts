@@ -14,14 +14,14 @@ export default async function handler(
   const auth = await requireAdminRole(req, res);
   if (!auth) return;
 
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({ error: "Forbidden: Super Admin access required" });
+  }
+
   try {
     // Only Chairman can toggle job published status
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
-
     const { id, published } = req.body;
 
     if (!id || typeof published !== "boolean") {

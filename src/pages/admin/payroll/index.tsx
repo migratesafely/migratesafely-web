@@ -664,7 +664,7 @@ export default function PayrollManagement() {
                 <SelectContent>
                   <SelectItem value="gm">General Manager</SelectItem>
                   <SelectItem value="md">Managing Director</SelectItem>
-                  <SelectItem value="chairman">Chairman (Final)</SelectItem>
+                  <SelectItem value="chairman">Super Admin (Final)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

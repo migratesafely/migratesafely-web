@@ -38,16 +38,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
   // Require admin role
   const auth = await requireAdminRole(req, res);
-  if (!auth) return;
+  if (!auth) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+  // Only Super Admin can view winners
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+  }
 
   try {
-    // Authority: Chairman only for administrative winner view
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
-
     const { drawId } = req.query;
 
     if (!drawId || typeof drawId !== "string") {

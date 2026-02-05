@@ -15,44 +15,43 @@ export default async function handler(
   const auth = await requireAdminRole(req, res);
   if (!auth) return;
 
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({ error: "Forbidden: Super Admin access required" });
+  }
+
+  // Get current user session
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+  if (userError || !user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  // Get user profile to check role
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile) {
+    return res.status(403).json({ error: "Profile not found" });
+  }
+
+  // Check if user has admin role (worker_admin, manager_admin, or super_admin)
+  const allowedRoles = ["worker_admin", "manager_admin", "super_admin"];
+  if (!allowedRoles.includes(profile.role)) {
+    return res.status(403).json({ error: "Forbidden: Admin access required" });
+  }
+
   try {
-    // Only Chairman can update embassies
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
-
-    // Get current user session
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !user) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    // Get user profile to check role
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return res.status(403).json({ error: "Profile not found" });
-    }
-
-    // Check if user has admin role (worker_admin, manager_admin, or super_admin)
-    const allowedRoles = ["worker_admin", "manager_admin", "super_admin"];
-    if (!allowedRoles.includes(profile.role)) {
-      return res.status(403).json({ error: "Forbidden: Admin access required" });
-    }
-
     // Extract body parameters
     const { embassyId, sourceUrl, contactSummary, contactDetails } = req.body;
 

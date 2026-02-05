@@ -29,6 +29,7 @@ import {
   downloadCSV,
   getCurrentOpenPeriod
 } from "@/services/accounting/financialCloseService";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import type { Database } from "@/integrations/supabase/types";
 
 type ClosePeriod = Database["public"]["Tables"]["monthly_close_periods"]["Row"] & {
@@ -68,14 +69,10 @@ export default function FinancialClosePage() {
         return;
       }
 
-      // AUTHORITY CHECK: Only Chairman can access financial close
-      const { data: employee } = await supabase
-        .from("employees")
-        .select("role_category")
-        .eq("user_id", user.id)
-        .single();
+      // AUTHORITY CHECK: Only Super Admin can access financial close
+      const isSuperAdmin = await agentPermissionsService.isSuperAdmin(user.id);
 
-      if (!employee || employee.role_category !== "chairman") {
+      if (!isSuperAdmin) {
         router.push("/dashboard");
         return;
       }

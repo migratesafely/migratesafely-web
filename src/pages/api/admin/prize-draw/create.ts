@@ -31,27 +31,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
   // Require admin role - blocks agents and members
   const auth = await requireAdminRole(req, res);
-  if (!auth) return; // Middleware handles rejection
+  if (!auth) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+  // Only Super Admin can create prize draws
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+  }
 
   try {
-    // Only Chairman can create prize draws
-    // LEGACY: super_admin check removed
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      // Log unauthorized attempt
-      await logAdminAction({
-        actorId: auth.userId,
-        action: "PRIZE_DRAW_CREATE_ATTEMPT_DENIED",
-        details: {
-          attempted_role: auth.userRole,
-          reason: "Only Chairman can create prize draws",
-        },
-      });
-
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
-
     // Parse request body
     const { countryCode, drawDateIso }: CreateDrawRequest = req.body;
 

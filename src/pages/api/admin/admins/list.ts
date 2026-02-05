@@ -66,11 +66,13 @@ export default async function handler(
       return res.status(403).json({ error: "Forbidden: Profile not found" });
     }
 
-    // AUTHORITY: Chairman only
-    const isChairman = await agentPermissionsService.isChairman(user.id);
-    
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
+    // 3. Only Chairman can view full admin list
+    const isSuperAdmin = await agentPermissionsService.isSuperAdmin(user.id);
+
+    if (!isSuperAdmin) {
+      return res.status(403).json({
+        error: "Forbidden: Only Super Admin can view admin list",
+      });
     }
 
     // Fetch all admin profiles

@@ -28,12 +28,18 @@ export default async function handler(
   const auth = await requireAdminRole(req, res);
   if (!auth) return;
 
+  const canView = await agentPermissionsService.canViewAgentApprovalAudit(auth.userId);
+
+  if (!canView) {
+    return res.status(403).json({ error: "Forbidden: Access restricted" });
+  }
+
   try {
-    // Only Chairman can view agent approval audit logs
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
+    // Only Super Admin or Manager Admin can view agent approval audit logs
+    const canViewLogs = await agentPermissionsService.canViewAgentApprovalAudit(auth.userId);
+
+    if (!canViewLogs) {
+      return res.status(403).json({ success: false, error: "Forbidden: Insufficient permissions" });
     }
 
     // Get query parameters

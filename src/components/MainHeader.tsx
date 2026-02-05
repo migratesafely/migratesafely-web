@@ -60,7 +60,7 @@ export function MainHeader() {
     router.push("/");
   };
 
-  const isAdmin = userRole === "super_admin" || userRole === "manager_admin" || userRole === "worker_admin" || userRole === "master_admin";
+  const isAdmin = userRole === "super_admin" || userRole === "manager_admin" || userRole === "worker_admin";
 
   const menuItems: MenuItem[] = [
     { label: "Home", href: "/" },

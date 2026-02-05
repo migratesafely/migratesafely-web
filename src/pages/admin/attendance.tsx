@@ -18,6 +18,7 @@ import {
   type LateEmployee,
   type AbsentEmployee
 } from "@/services/attendanceService";
+// Note: agentPermissionsService used by API endpoints for security
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import * as XLSX from "xlsx";
 

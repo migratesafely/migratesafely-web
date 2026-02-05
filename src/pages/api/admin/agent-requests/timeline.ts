@@ -21,21 +21,21 @@ export default async function handler(
   const auth = await requireAdminRole(req, res);
   if (!auth) return;
 
+  // Only Chairman can view timelines
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({ error: "Forbidden: Super Admin access required" });
+  }
+
+  // Get request_id from query
+  const { request_id } = req.query;
+
+  if (!request_id || typeof request_id !== "string") {
+    return res.status(400).json({ error: "request_id is required" });
+  }
+
   try {
-    // Only Chairman can view agent request timeline
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
-
-    // Get request_id from query
-    const { request_id } = req.query;
-
-    if (!request_id || typeof request_id !== "string") {
-      return res.status(400).json({ error: "request_id is required" });
-    }
-
     // Fetch timeline
     const timeline = await agentRequestTimelineService.getRequestTimeline(request_id);
 
@@ -44,9 +44,9 @@ export default async function handler(
       timeline,
       total: timeline.length,
     });
-
   } catch (error) {
     console.error("Timeline fetch error:", error);
     return res.status(500).json({ error: "Internal server error" });
   }
+
 }

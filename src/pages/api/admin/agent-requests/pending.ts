@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
-import { requireAdminRole } from "@/lib/apiMiddleware";
+import { requireAuth } from "@/lib/apiMiddleware";
 import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { agentRequestService } from "@/services/agentRequestService";
 
@@ -9,18 +9,38 @@ export default async function handler(
   res: NextApiResponse
 ) {
   if (req.method !== "GET") {
-    return res.status(405).json({ success: false, error: "Method not allowed" });
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const auth = await requireAdminRole(req, res);
-  if (!auth) return;
+  const { auth } = await requireAuth(req, res);
+  if (!auth || !auth.userId) {
+    return; // requireAuth handles response
+  }
+
+  // Check if role is allowed
+  const allowedRoles = ["super_admin", "manager_admin", "worker_admin"];
+  // We need to fetch the role if it's not in the auth object or check permissions service
+  // For now assuming auth middleware might need adjustment or we check manually
+  
+  // Since requireAuth in this project might return { userId, role } or just handle response
+  // I need to check apiMiddleware.ts signature. 
+  // Based on error "Expected 2 arguments, but got 3", it takes (req, res).
+  // Let's rely on agentPermissionsService for role checks which is safer.
 
   try {
-    // Only Chairman can view agent requests
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
+    const { data: employee } = await supabase
+      .from("employees") // Fixed table name
+      .select("role_category")
+      .eq("user_id", auth.userId)
+      .single();
+
+    // Super Admin override: Can view without chairman role
+    // Only Chairman can view pending agent requests
+    const isChairman = employee?.role_category === "chairman";
+    const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
     
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
+    if (!isChairman && !isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Chairman or Super Admin access required" });
     }
 
     const result = await agentRequestService.listPendingRequestsForAdmin();

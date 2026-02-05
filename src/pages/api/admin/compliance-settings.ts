@@ -33,11 +33,9 @@ export default async function handler(
     const auth = await requireAdminRole(req, res);
     if (!auth) return; // Middleware handles rejection
 
-    // AUTHORITY: Only Chairman can manage compliance settings
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      return res.status(403).json({ error: "Forbidden: Chairman access required" });
+    const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+    if (!isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Only Super Admin can modify compliance settings" });
     }
 
     const {

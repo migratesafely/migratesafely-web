@@ -11,8 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { AlertCircle, CheckCircle2, DollarSign, Calendar, User, Building, Eye, Download, FileText, CreditCard, Filter, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { formatBDT } from "@/lib/bdtFormatter";
+import { useToast } from "@/hooks/use-toast";
 
 interface ExpenseRequest {
   id: string;
@@ -110,9 +112,12 @@ export default function PaymentQueuePage() {
       const dept = employee.department;
 
       // Check if user has payment authority
+      const isSuperAdmin = await agentPermissionsService.isSuperAdmin(user.id);
+      
       const hasAuthority = 
         dept === "accounts" ||
-        ["chairman", "managing_director", "general_manager"].includes(role);
+        ["managing_director", "general_manager"].includes(role) ||
+        isSuperAdmin;
 
       if (!hasAuthority) {
         setError("You do not have payment processing authority.");
@@ -120,7 +125,7 @@ export default function PaymentQueuePage() {
         return;
       }
 
-      setUserRole(role);
+      setUserRole(isSuperAdmin ? "super_admin" : role);
       setUserDepartment(dept);
       setHasPaymentAuthority(true);
       await loadPaymentQueue();

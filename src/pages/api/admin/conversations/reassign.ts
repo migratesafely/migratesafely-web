@@ -19,13 +19,13 @@ export default async function handler(
   const auth = await requireAdminRole(req, res);
   if (!auth) return;
 
-  try {
-    // Only Chairman can reassign conversations
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
 
+  if (!isSuperAdmin) {
+    return res.status(403).json({ error: "Forbidden: Super Admin access required" });
+  }
+
+  try {
     const { request_id, new_agent_id, reason } = req.body;
 
     // STRICT ENFORCEMENT: Only super_admin and manager_admin can reassign

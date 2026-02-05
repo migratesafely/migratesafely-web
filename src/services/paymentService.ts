@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "./notificationService";
 
 export interface BankDetails {
   accountHolderName: string;
@@ -114,10 +115,22 @@ export const paymentService = {
         p_source_transaction_id: sourceTransactionId || null,
       });
 
-      if (error) {
-        console.error("Error requesting payment approval:", error);
-        return { success: false, error: error.message };
+      if (error || !data) {
+        console.error("Failed to create payment request:", error);
+        return { success: false, error: "Failed to create payment request" };
       }
+
+      // Notify Super Admin
+      await notificationService.notifyAdmins(
+        "super_admin",
+        "wallet_credit", // Closest type for payment request
+        "New Payment Request",
+        `Payment request (${paymentType}) of ${currencyCode} ${amount}`,
+        {
+          referenceId: data, // data is the ID string
+          referenceType: "payment_request"
+        }
+      );
 
       return { success: true, paymentRequestId: data };
     } catch (error) {

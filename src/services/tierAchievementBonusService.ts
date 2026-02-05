@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "./notificationService";
 
 export interface TierAchievementBonus {
   id: string;
@@ -48,6 +49,24 @@ export const tierAchievementBonusService = {
       if (error) {
         console.error("Error requesting tier achievement bonus:", error);
         return { success: false, error: error.message };
+      }
+
+      if (!data) {
+        return { success: false, error: "Failed to create tier achievement bonus approval" };
+      }
+
+      // Notify Super Admin
+      if (data) {
+        await notificationService.notifyAdmins(
+          "super_admin",
+          "tier_achievement_bonus_pending",
+          "New Achievement Bonus Request",
+          `Achievement bonus request for member ${memberId}`,
+          {
+            referenceId: data, // data is usually the ID string
+            referenceType: "tier_achievement_bonus"
+          }
+        );
       }
 
       return { success: true, approvalId: data };

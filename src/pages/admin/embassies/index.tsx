@@ -52,6 +52,7 @@ export default function AdminEmbassiesPage() {
       return;
     }
 
+    // Check if user is chairman or admin
     const { data: employee } = await supabase
       .from("employees")
       .select("role_category")
@@ -60,13 +61,10 @@ export default function AdminEmbassiesPage() {
 
     const isChairman = employee?.role_category === "chairman";
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    
-    const role = profile?.role;
+    // Get profile role
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    const role = profile?.role || "";
+
     if (isChairman || role === "worker_admin" || role === "manager_admin") {
       setUserRole(isChairman ? "chairman" : role);
     } else {

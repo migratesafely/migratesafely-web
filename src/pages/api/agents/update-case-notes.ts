@@ -39,17 +39,12 @@ export default async function handler(
       return res.status(400).json({ error: "Notes are required" });
     }
 
-    // Check permission to update case notes for this request
-    const permissionCheck = await agentPermissionsService.canUpdateCaseNotes(
-      auth.userId,
-      requestId
-    );
-
-    if (!permissionCheck.allowed) {
+    // Check permission
+    const permission = await agentPermissionsService.canUpdateCaseNotes(auth.userId, requestId);
+    if (!permission.allowed) {
       return res.status(403).json({
         error: "Forbidden",
-        details: permissionCheck.reason,
-        violationType: permissionCheck.violationType,
+        details: permission.reason
       });
     }
 

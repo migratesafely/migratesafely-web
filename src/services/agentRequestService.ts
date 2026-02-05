@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "@/services/notificationService";
 import type { Database } from "@/integrations/supabase/types";
 
 // Helper types for casting since exact DB types might not be generated yet
@@ -96,6 +97,18 @@ export const agentRequestService = {
         console.error("Error submitting agent request:", insertError);
         return { success: false, error: "Failed to submit request" };
       }
+
+      // Notify Super Admin
+      await notificationService.notifyAdmins(
+        "super_admin",
+        "system_alert",
+        "New Agent Request",
+        `New agent request submitted`,
+        {
+          referenceId: request.id,
+          referenceType: "agent_request"
+        }
+      );
 
       return { success: true, request };
     } catch (error) {

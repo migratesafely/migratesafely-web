@@ -112,8 +112,8 @@ export const messageService = {
         return { success: false, error: "Failed to create support message" };
       }
 
-      const isChairman = await agentPermissionsService.isChairman(userId);
-      if (!isChairman) {
+      const isSuperAdmin = await agentPermissionsService.isSuperAdmin(userId);
+      if (!isSuperAdmin) {
         return { success: false, error: "Forbidden: Chairman access required" };
       }
 
@@ -187,6 +187,12 @@ export const messageService = {
       if (messageError) {
         console.error("Error creating broadcast message:", messageError);
         return { success: false, error: "Failed to create broadcast message" };
+      }
+
+      // 1. Check authority
+      const isSuperAdmin = await agentPermissionsService.isSuperAdmin(adminId);
+      if (!isSuperAdmin) {
+        return { success: false, error: "Only Chairman can send broadcast messages" };
       }
 
       let recipientIds: string[] = [];

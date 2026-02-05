@@ -311,10 +311,10 @@ export async function getAdminNotifications(userId: string): Promise<{
   error: string | null;
   notifications: any[];
 }> {
-  const isChairman = await agentPermissionsService.isChairman(userId);
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(userId);
   const isAdmin = await agentPermissionsService.isAdmin(userId);
   
-  if (!isChairman && !isAdmin) {
+  if (!isSuperAdmin && !isAdmin) {
     return {
       success: false,
       error: "User is not an admin",

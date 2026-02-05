@@ -9,7 +9,7 @@ import { agentPermissionsService } from "@/services/agentPermissionsService";
 
 /**
  * Manually expire a winning and redraw
- * ADMIN ONLY: Restricted to Chairman
+ * ADMIN ONLY: Restricted to Super Admin
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -20,14 +20,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const auth = await requireAdminRole(req, res);
   if (!auth) return;
 
-  try {
-    // Only Chairman can expire and redraw
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
 
+  if (!isSuperAdmin) {
+    return res.status(403).json({ error: "Forbidden: Super Admin access required" });
+  }
+
+  try {
     // Get request body
     const { drawId } = req.body;
 

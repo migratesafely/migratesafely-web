@@ -17,13 +17,12 @@ export default async function handler(
   const auth = await requireAdminRole(req, res);
   if (!auth) return;
 
-  try {
-    // Only Chairman can view audit logs
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    if (!isChairman) {
-      return res.status(403).json({ error: "Forbidden: Chairman access required" });
-    }
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+  if (!isSuperAdmin) {
+    return res.status(403).json({ error: "Forbidden: Super Admin access required" });
+  }
 
+  try {
     // 1. Verify authentication
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {

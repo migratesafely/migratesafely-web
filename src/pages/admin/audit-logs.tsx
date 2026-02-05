@@ -58,6 +58,7 @@ export default function AuditLogsPage() {
         return;
       }
 
+      // Check if user is chairman or manager_admin
       const { data: employee } = await supabase
         .from("employees")
         .select("role_category")
@@ -66,14 +67,8 @@ export default function AuditLogsPage() {
 
       const isChairman = employee?.role_category === "chairman";
       
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
-
-      if (!isChairman && profile?.role !== "manager_admin") {
-        router.push("/admin");
+      if (!isChairman) {
+        router.push("/dashboard");
         return;
       }
 

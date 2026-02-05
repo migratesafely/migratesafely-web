@@ -1,251 +1,326 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type Employee = Database["public"]["Tables"]["employees"]["Row"];
+
 /**
- * Agent Permissions Service
+ * AUTHORITY TRANSFER: super_admin replaces chairman as FINAL OPERATIONAL AUTHORITY
  * 
- * AUTHORITY MODEL:
- * - Chairman (employees.role_category = 'chairman') has ABSOLUTE authority over all operations
- * - Managing Director, General Manager, Department Heads have subordinate authority
- * - master_admin is emergency-only, hidden from operations
- * 
- * LEGACY NOTE:
- * - profiles.role = 'super_admin' is DEPRECATED and UNUSED
- * - All operational authority flows through employees.role_category
+ * super_admin = SINGLE FINAL AUTHORITY for ALL operations
+ * chairman = LEGACY role, NO operational authority
  */
-
-interface PermissionResult {
-  allowed: boolean;
-  reason?: string;
-  violationType?: string;
-}
 
 /**
- * Check if user is Chairman (absolute operational authority)
+ * Check if user is Super Admin (FINAL OPERATIONAL AUTHORITY)
+ * Replaces chairman as the highest authority in the system
  */
-export async function isChairman(userId: string): Promise<boolean> {
-  const { data: employee } = await supabase
-    .from("employees")
-    .select("role_category")
-    .eq("user_id", userId)
-    .single();
+export async function isSuperAdmin(userId?: string): Promise<boolean> {
+  if (!userId) return false;
 
-  return employee?.role_category === "chairman";
-}
+  try {
+    const { data: employee, error } = await supabase
+      .from("employees")
+      .select("role_category")
+      .eq("user_id", userId)
+      .maybeSingle();
 
-/**
- * Check if user is an admin (has any admin role OR is Chairman)
- * Updated to include Chairman as a valid admin for permission checks
- */
-export async function isAdmin(userId: string): Promise<boolean> {
-  // Check if Chairman (highest admin authority)
-  if (await isChairman(userId)) {
-    return true;
+    if (error) {
+      console.error("Error checking super admin status:", error);
+      return false;
+    }
+
+    // Cast to string to avoid TypeScript enum overlap error
+    return (employee?.role_category as string) === "super_admin";
+  } catch (error) {
+    console.error("Error checking super admin status:", error);
+    return false;
   }
+}
+
+/**
+ * Check if user is an Admin (any admin role)
+ */
+export async function isAdmin(userId?: string): Promise<boolean> {
+  if (!userId) return false;
+
+  try {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single();
+
+    if (error) return false;
+
+    return ["super_admin", "manager_admin", "worker_admin"].includes(
+      profile?.role || ""
+    );
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Check if user is an Approved Agent
+ */
+export async function isApprovedAgent(userId?: string): Promise<boolean> {
+  if (!userId) return false;
+
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, agent_status")
+      .eq("id", userId)
+      .maybeSingle();
+
+    return profile?.role === "agent" && profile?.agent_status === "approved";
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Check if admin has permission to view scam reports
+ * AUTHORITY: Super Admin (replaces chairman)
+ */
+export async function canViewScamReports(userId?: string): Promise<boolean> {
+  if (!userId) return false;
+
+  const uid = userId;
+  
+  // Check if super admin (FINAL AUTHORITY)
+  if (await isSuperAdmin(uid)) return true;
+
+  // Check for manager/worker admin roles
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", uid)
+    .maybeSingle();
+
+  return ["manager_admin", "worker_admin"].includes(profile?.role || "");
+}
+
+/**
+ * Check if user can view agent requests
+ * AUTHORITY: Super Admin, Manager Admin, Worker Admin
+ */
+export async function canViewAgentRequests(userId?: string): Promise<boolean> {
+  if (!userId) return false;
+
+  // Super Admin has full access
+  if (await isSuperAdmin(userId)) return true;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
-  if (!profile) return false;
-
-  // Admin roles: master_admin (emergency only), manager_admin, worker_admin
-  // LEGACY: super_admin is DEPRECATED - not checked here
-  return ["master_admin", "manager_admin", "worker_admin"].includes(profile.role);
-}
-
-/**
- * Check if user has operational authority (Chairman, MD, GM, Dept Head)
- */
-export async function hasOperationalAuthority(userId: string): Promise<boolean> {
-  const { data: employee } = await supabase
-    .from("employees")
-    .select("role_category")
-    .eq("user_id", userId)
-    .single();
-
-  if (!employee) return false;
-
-  return ["chairman", "managing_director", "general_manager", "department_head"].includes(
-    employee.role_category
-  );
-}
-
-/**
- * Get user's employee role category
- */
-export async function getEmployeeRole(userId: string): Promise<string | null> {
-  const { data: employee } = await supabase
-    .from("employees")
-    .select("role_category")
-    .eq("user_id", userId)
-    .single();
-
-  return employee?.role_category || null;
-}
-
-/**
- * Check if user is an approved agent
- */
-export async function isApprovedAgent(userId: string): Promise<boolean> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, agent_status")
-    .eq("id", userId)
-    .single();
-
-  return profile?.role === "agent" && profile?.agent_status === "ACTIVE";
-}
-
-/**
- * Log a permission violation
- */
-export async function logPermissionViolation(
-  userId: string,
-  violationType: string,
-  details: any,
-  ipAddress: string,
-  userAgent?: string
-): Promise<void> {
-  console.warn(`PERMISSION VIOLATION [${violationType}] User: ${userId}`, details);
-  
-  try {
-    // Attempt to log to audit logs if table exists, otherwise just console
-    await supabase.from("audit_logs").insert({
-      actor_id: userId,
-      action: "PERMISSION_VIOLATION",
-      details: {
-        violation_type: violationType,
-        ...details,
-        ip: ipAddress,
-        user_agent: userAgent
-      }
-    });
-  } catch (err) {
-    console.error("Failed to log permission violation to DB", err);
-  }
-}
-
-/**
- * Check if user can manage prize draws
- * AUTHORITY: Chairman only
- */
-export async function canManagePrizeDraws(userId: string): Promise<boolean> {
-  return await isChairman(userId);
-}
-
-/**
- * Check if user can manage agents
- * AUTHORITY: Chairman only
- */
-export async function canManageAgents(userId: string): Promise<boolean> {
-  return await isChairman(userId);
-}
-
-/**
- * Check if user can manage system settings
- * AUTHORITY: Chairman only
- */
-export async function canManageSystemSettings(userId: string): Promise<boolean> {
-  return await isChairman(userId);
-}
-
-/**
- * Check if user can manage admins
- * AUTHORITY: Chairman only
- */
-export async function canManageAdmins(userId: string): Promise<boolean> {
-  return await isChairman(userId);
-}
-
-/**
- * Check if user can approve identity verifications
- * AUTHORITY: Chairman only
- */
-export async function canApproveIdentityVerifications(userId: string): Promise<boolean> {
-  return await isChairman(userId);
-}
-
-/**
- * Check if user can verify scam reports
- * AUTHORITY: Chairman only
- */
-export async function canVerifyScamReports(userId: string): Promise<boolean> {
-  return await isChairman(userId);
+  return ["manager_admin", "worker_admin"].includes(profile?.role || "");
 }
 
 /**
  * Check if user can view member details
- * AUTHORITY: Admins and Chairman (Always allowed)
- * AGENTS: Only if assigned
+ * AUTHORITY: Super Admin OR assigned agent
  */
-export async function canViewMember(userId: string, targetMemberId?: string): Promise<PermissionResult> {
-  if (await isAdmin(userId)) {
-    return { allowed: true };
+export async function canViewMember(
+  userId?: string,
+  memberId?: string
+): Promise<{ allowed: boolean; reason?: string }> {
+  if (!userId) {
+    return { allowed: false, reason: "User ID required" };
   }
 
-  if (await isApprovedAgent(userId)) {
-    if (!targetMemberId) return { allowed: false, reason: "Target member ID required", violationType: "MISSING_PARAM" };
-    
-    // Check assignment - Split query to avoid deep type instantiation
-    // Cast to any to avoid TS2589 "excessively deep and possibly infinite" error
-    const { data: assignment } = await (supabase as any)
+  const uid = userId;
+
+  try {
+    // Verify agent assignment
+    // CASTING SUPABASE TO ANY TO AVOID DEEP TYPE INSTANTIATION ERROR
+    const { data } = await (supabase as any)
       .from("agent_requests")
-      .select("id")
-      .eq("assigned_agent_id", userId)
-      .eq("user_id", targetMemberId)
-      .eq("status", "assigned")
+      .select("assigned_agent_id")
+      .eq("user_id", memberId)
       .maybeSingle();
+      
+    if (data) {
+      return { allowed: true };
+    }
 
-    if (assignment) return { allowed: true };
-    return { allowed: false, reason: "Member not assigned to agent", violationType: "UNAUTHORIZED_ACCESS" };
+    return { allowed: false, reason: "Not assigned to this member" };
+  } catch (error) {
+    console.error("Error checking member view permission:", error);
+    return { allowed: false, reason: "Permission check failed" };
   }
-
-  return { allowed: false, reason: "User not authorized", violationType: "UNAUTHORIZED_ROLE" };
 }
 
 /**
- * Check if user can update case notes
- * AUTHORITY: Admins, Chairman (Always allowed)
- * AGENTS: Only for their assigned requests
+ * AUTHORITY: Super Admin only (replaces chairman)
  */
-export async function canUpdateCaseNotes(userId: string, requestId?: string): Promise<PermissionResult> {
-  if (await isAdmin(userId)) {
-    return { allowed: true };
-  }
+export async function canAssignAgentRequests(userId?: string): Promise<boolean> {
+  return await isSuperAdmin(userId);
+}
 
-  if (await isApprovedAgent(userId)) {
-    if (!requestId) return { allowed: false, reason: "Request ID required", violationType: "MISSING_PARAM" };
+/**
+ * AUTHORITY: Super Admin only (replaces chairman)
+ */
+export async function canApproveIdentityVerifications(userId?: string): Promise<boolean> {
+  return await isSuperAdmin(userId);
+}
 
-    const { data: request } = await supabase
+/**
+ * AUTHORITY: Super Admin only (replaces chairman)
+ */
+export async function canRejectAgents(userId?: string): Promise<boolean> {
+  return await isSuperAdmin(userId);
+}
+
+/**
+ * AUTHORITY: Super Admin only (replaces chairman)
+ */
+export async function canSuspendAgents(userId?: string): Promise<boolean> {
+  return await isSuperAdmin(userId);
+}
+
+/**
+ * AUTHORITY: Super Admin only (replaces chairman)
+ */
+export async function canReinstateAgents(userId?: string): Promise<boolean> {
+  return await isSuperAdmin(userId);
+}
+
+/**
+ * AUTHORITY: Super Admin only (replaces chairman)
+ */
+export async function canApproveAgents(userId?: string): Promise<boolean> {
+  return await isSuperAdmin(userId);
+}
+
+/**
+ * AUTHORITY: Super Admin and Manager Admin
+ */
+export async function canViewAgentApprovalAudit(userId?: string): Promise<boolean> {
+  if (!userId) return false;
+
+  const uid = userId;
+  const superAdmin = await isSuperAdmin(uid);
+  if (superAdmin) return true;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", uid)
+    .maybeSingle();
+
+  return profile?.role === "manager_admin";
+}
+
+/**
+ * AUTHORITY: Super Admin only (replaces chairman)
+ */
+export async function canVerifyScamReports(userId?: string): Promise<boolean> {
+  return await isSuperAdmin(userId);
+}
+
+/**
+ * AUTHORITY: Super Admin and admin roles
+ */
+export async function canUpdateCaseNotes(
+  userId?: string,
+  requestId?: string
+): Promise<{ allowed: boolean; reason?: string }> {
+  if (!userId) return { allowed: false, reason: "User ID required" };
+
+  const uid = userId;
+  const superAdmin = await isSuperAdmin(uid);
+  if (superAdmin) return { allowed: true };
+
+  try {
+    // CASTING SUPABASE TO ANY TO AVOID DEEP TYPE INSTANTIATION ERROR
+    const { data } = await (supabase as any)
       .from("agent_requests")
-      .select("id")
+      .select("assigned_agent_id")
       .eq("id", requestId)
-      .eq("assigned_agent_id", userId)
-      .single();
+      .maybeSingle();
+    
+    const request = data as { assigned_agent_id: string | null } | null;
+      
+    if (request?.assigned_agent_id === userId) {
+      return { allowed: true };
+    }
 
-    if (request) return { allowed: true };
-    return { allowed: false, reason: "Request not assigned to agent", violationType: "UNAUTHORIZED_ACCESS" };
+    return { allowed: false, reason: "Not assigned to this request" };
+  } catch (error) {
+    console.error("Error checking case notes permission:", error);
+    return { allowed: false, reason: "Permission check failed" };
   }
+}
 
-  return { allowed: false, reason: "User not authorized", violationType: "UNAUTHORIZED_ROLE" };
+/**
+ * Log permission violations (audit trail)
+ */
+export async function logPermissionViolation(
+  userId: string,
+  action: string,
+  resource: string,
+  reason: string
+): Promise<void> {
+  try {
+    await supabase.from("audit_logs").insert({
+      user_id: userId,
+      action: `PERMISSION_VIOLATION: ${action}`,
+      resource_type: resource,
+      details: { reason, timestamp: new Date().toISOString() },
+    });
+  } catch (error) {
+    console.error("Failed to log permission violation:", error);
+  }
+}
+
+/**
+ * Log agent approval actions (audit trail)
+ */
+export async function logAgentApprovalAction(
+  adminId: string,
+  agentId: string,
+  action: string,
+  notes: string
+): Promise<void> {
+  try {
+    await supabase.from("audit_logs").insert({
+      user_id: adminId,
+      action: `AGENT_APPROVAL: ${action}`,
+      resource_type: "agent_verification",
+      resource_id: agentId,
+      details: { 
+        action, 
+        notes, 
+        agentId,
+        timestamp: new Date().toISOString() 
+      },
+    });
+  } catch (error) {
+    console.error("Failed to log agent approval action:", error);
+  }
 }
 
 export const agentPermissionsService = {
+  isSuperAdmin,
   isAdmin,
-  isChairman,
-  hasOperationalAuthority,
-  getEmployeeRole,
   isApprovedAgent,
-  logPermissionViolation,
-  canManagePrizeDraws,
-  canManageAgents,
-  canManageSystemSettings,
-  canManageAdmins,
+  canViewScamReports,
+  canViewAgentRequests,
+  canAssignAgentRequests,
   canApproveIdentityVerifications,
+  canApproveAgents,
+  canRejectAgents,
+  canSuspendAgents,
+  canReinstateAgents,
+  canViewAgentApprovalAudit,
   canVerifyScamReports,
   canViewMember,
-  canUpdateCaseNotes
+  canUpdateCaseNotes,
+  logPermissionViolation,
+  logAgentApprovalAction
 };

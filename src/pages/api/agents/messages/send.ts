@@ -59,7 +59,6 @@ export default async function handler(
         return res.status(403).json({
           error: "Forbidden",
           details: permissionCheck.reason,
-          violationType: permissionCheck.violationType,
         });
       }
     }

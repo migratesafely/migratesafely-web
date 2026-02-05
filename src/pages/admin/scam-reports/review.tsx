@@ -56,6 +56,7 @@ export default function ReviewScamReport() {
         return;
       }
 
+      // Check if user is chairman
       const { data: employee } = await supabase
         .from("employees")
         .select("role_category")
@@ -64,6 +65,7 @@ export default function ReviewScamReport() {
 
       const isChairman = employee?.role_category === "chairman";
       
+      // Get profile role for fallback admin check
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -71,7 +73,7 @@ export default function ReviewScamReport() {
         .single();
 
       if (!isChairman && !["manager_admin", "worker_admin"].includes(profile?.role || "")) {
-        router.push("/admin");
+        router.push("/dashboard");
         return;
       }
 

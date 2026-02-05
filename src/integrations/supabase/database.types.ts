@@ -8026,6 +8026,8 @@ export type Database = {
         }[]
       }
       has_active_membership: { Args: { user_uuid: string }; Returns: boolean }
+      is_current_user_master_admin: { Args: never; Returns: boolean }
+      is_master_admin: { Args: never; Returns: boolean }
       is_membership_active: { Args: { user_uuid: string }; Returns: boolean }
       lock_accounting_period: {
         Args: { p_admin_id: string; p_month: number; p_year: number }
@@ -8345,6 +8347,7 @@ export type Database = {
         | "agent_pending"
         | "agent_suspended"
         | "master_admin"
+        | "legal_admin"
       withdrawal_status: "pending" | "approved" | "rejected" | "paid"
     }
     CompositeTypes: {
@@ -8575,6 +8578,7 @@ export const Constants = {
         "agent_pending",
         "agent_suspended",
         "master_admin",
+        "legal_admin",
       ],
       withdrawal_status: ["pending", "approved", "rejected", "paid"],
     },

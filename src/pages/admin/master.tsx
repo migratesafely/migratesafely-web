@@ -1,36 +1,48 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Shield, AlertTriangle, Users, Lock, Unlock } from "lucide-react";
-import { MainHeader } from "@/components/MainHeader";
+import { AlertCircle, Shield, UserCheck, UserX, RefreshCw } from "lucide-react";
 
-interface SystemSettings {
-  admin_access_suspended: boolean;
-}
-
-interface Chairman {
+interface SuperAdmin {
   id: string;
-  full_name: string;
   email: string;
+  full_name: string;
+  date_of_birth: string | null;
+  government_id_number: string | null;
   created_at: string;
+  is_active: boolean;
 }
 
-export default function MasterAdminPage() {
+export default function MasterAdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
-  const [settings, setSettings] = useState<SystemSettings>({
-    admin_access_suspended: false,
+  const [authorized, setAuthorized] = useState(false);
+  const [superAdmins, setSuperAdmins] = useState<SuperAdmin[]>([]);
+  const [selectedAdmin, setSelectedAdmin] = useState<SuperAdmin | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Form states
+  const [createForm, setCreateForm] = useState({
+    email: "",
+    password: "",
+    full_name: "",
+    date_of_birth: "",
+    government_id_number: "",
   });
-  const [chairman, setChairman] = useState<Chairman | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+
+  const [updateForm, setUpdateForm] = useState({
+    full_name: "",
+    date_of_birth: "",
+    government_id_number: "",
+    hr_notes: "",
+  });
 
   useEffect(() => {
     checkMasterAdminAccess();
@@ -38,304 +50,405 @@ export default function MasterAdminPage() {
 
   const checkMasterAdminAccess = async () => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        router.replace("/404");
         return;
       }
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", session.user.id)
+        .eq("id", user.id)
         .single();
 
       if (profile?.role !== "master_admin") {
-        router.push("/dashboard");
+        router.replace("/404");
         return;
       }
 
-      setIsMasterAdmin(true);
-      await loadSettings();
-      await loadChairman();
-    } catch (err) {
-      console.error("Error checking access:", err);
-      router.push("/dashboard");
+      setAuthorized(true);
+      loadSuperAdmins();
+    } catch (error) {
+      router.replace("/404");
     } finally {
       setLoading(false);
     }
   };
 
-  const loadSettings = async () => {
+  const loadSuperAdmins = async () => {
     try {
-      const { data } = await supabase
-        .from("system_settings")
-        .select("setting_key, setting_value")
-        .eq("setting_key", "admin_access_suspended")
-        .single();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, date_of_birth, government_id_number, created_at")
+        .eq("role", "super_admin")
+        .order("created_at", { ascending: false });
 
-      if (data) {
-        setSettings({
-          admin_access_suspended: data.setting_value === "true",
-        });
-      }
-    } catch (err) {
-      console.error("Error loading settings:", err);
+      if (error) throw error;
+      
+      const formattedAdmins: SuperAdmin[] = (data || []).map(admin => ({
+        ...admin,
+        is_active: true // Default to true for queried super admins
+      }));
+      
+      setSuperAdmins(formattedAdmins);
+    } catch (error) {
+      console.error("Error loading super admins:", error);
     }
   };
 
-  const loadChairman = async () => {
-    try {
-      const { data } = await supabase
-        .from("employees")
-        .select("id, user_id, created_at")
-        .eq("role_category", "chairman")
-        .eq("status", "active")
-        .single();
-
-      if (data) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .eq("id", data.user_id)
-          .single();
-
-        if (profile) {
-          setChairman({
-            id: data.id,
-            full_name: profile.full_name || "Unknown",
-            email: profile.email || "Unknown",
-            created_at: data.created_at,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Error loading chairman:", err);
+  const handleCreateSuperAdmin = async () => {
+    if (!createForm.email || !createForm.password || !createForm.full_name) {
+      setMessage({ type: "error", text: "Email, password, and full name are required" });
+      return;
     }
-  };
-
-  const toggleAdminSuspension = async () => {
-    setActionLoading(true);
-    setError(null);
-    setSuccess(null);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        setError("Session expired");
-        return;
-      }
-
-      const newValue = !settings.admin_access_suspended;
-
-      // Update system setting
-      const { error: updateError } = await supabase
-        .from("system_settings")
-        .update({
-          setting_value: String(newValue),
-          updated_by: session.user.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("setting_key", "admin_access_suspended");
-
-      if (updateError) throw updateError;
-
-      // Log action in audit_logs
-      await supabase.from("audit_logs").insert({
-        user_id: session.user.id,
-        action: newValue
-          ? "ADMIN_SUSPENSION_ENABLED"
-          : "ADMIN_SUSPENSION_DISABLED",
-        table_name: "system_settings",
-        record_id: null,
-        old_values: { admin_access_suspended: settings.admin_access_suspended },
-        new_values: { admin_access_suspended: newValue },
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: createForm.email,
+        password: createForm.password,
       });
 
-      setSettings({ admin_access_suspended: newValue });
-      setSuccess(
-        newValue
-          ? "Admin access suspended - Only Master Admin can login"
-          : "Admin access restored - All admins can login"
-      );
-    } catch (err: unknown) {
-      console.error("Error toggling suspension:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to toggle suspension"
-      );
-    } finally {
-      setActionLoading(false);
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("User creation failed");
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          role: "super_admin",
+          full_name: createForm.full_name,
+          date_of_birth: createForm.date_of_birth || null,
+          government_id_number: createForm.government_id_number || null,
+        })
+        .eq("id", authData.user.id);
+
+      if (profileError) throw profileError;
+
+      setMessage({ type: "success", text: "Super Admin created successfully" });
+      setCreateForm({
+        email: "",
+        password: "",
+        full_name: "",
+        date_of_birth: "",
+        government_id_number: "",
+      });
+      loadSuperAdmins();
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to create Super Admin" });
+    }
+  };
+
+  const handleReplaceSuperAdmin = async (oldAdminId: string, newEmail: string, newPassword: string) => {
+    if (!newEmail || !newPassword) {
+      setMessage({ type: "error", text: "New admin email and password required" });
+      return;
+    }
+
+    try {
+      // Create new Super Admin
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newEmail,
+        password: newPassword,
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("User creation failed");
+
+      // Set new user as super_admin
+      const { error: newProfileError } = await supabase
+        .from("profiles")
+        .update({ role: "super_admin" })
+        .eq("id", authData.user.id);
+
+      if (newProfileError) throw newProfileError;
+
+      // Downgrade old Super Admin to manager_admin (retain record)
+      const { error: oldProfileError } = await supabase
+        .from("profiles")
+        .update({ role: "manager_admin" })
+        .eq("id", oldAdminId);
+
+      if (oldProfileError) throw oldProfileError;
+
+      setMessage({ type: "success", text: "Super Admin replaced successfully" });
+      loadSuperAdmins();
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to replace Super Admin" });
+    }
+  };
+
+  const handleDisableSuperAdmin = async (adminId: string) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "worker_admin" })
+        .eq("id", adminId);
+
+      if (error) throw error;
+
+      setMessage({ type: "success", text: "Super Admin disabled" });
+      loadSuperAdmins();
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to disable Super Admin" });
+    }
+  };
+
+  const handleRestoreSuperAdmin = async (adminId: string) => {
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: "super_admin" })
+        .eq("id", adminId);
+
+      if (error) throw error;
+
+      setMessage({ type: "success", text: "Super Admin restored" });
+      loadSuperAdmins();
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to restore Super Admin" });
+    }
+  };
+
+  const handleUpdateIdentity = async () => {
+    if (!selectedAdmin) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: updateForm.full_name,
+          date_of_birth: updateForm.date_of_birth || null,
+          government_id_number: updateForm.government_id_number || null,
+        })
+        .eq("id", selectedAdmin.id);
+
+      if (error) throw error;
+
+      setMessage({ type: "success", text: "Identity updated successfully" });
+      loadSuperAdmins();
+      setSelectedAdmin(null);
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Failed to update identity" });
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading Master Admin Panel...</p>
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Verifying access...</p>
         </div>
       </div>
     );
   }
 
-  if (!isMasterAdmin) {
+  if (!authorized) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Shield className="h-8 w-8 text-red-600" />
-            <h1 className="text-3xl font-bold text-gray-900">
-              Master Admin Control Panel
-            </h1>
+    <div className="min-h-screen bg-background p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <div className="flex items-center gap-3">
+          <Shield className="w-8 h-8 text-primary" />
+          <div>
+            <h1 className="text-3xl font-bold">Master Admin Governance</h1>
+            <p className="text-muted-foreground">System authority management</p>
           </div>
-          <p className="text-gray-600">
-            Emergency continuity controls - Founder access only
-          </p>
         </div>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+        {message && (
+          <Alert variant={message.type === "error" ? "destructive" : "default"}>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{message.text}</AlertDescription>
           </Alert>
         )}
 
-        {success && (
-          <Alert className="mb-6 border-green-500 bg-green-50">
-            <AlertDescription className="text-green-800">
-              {success}
-            </AlertDescription>
-          </Alert>
-        )}
+        <Tabs defaultValue="super-admins" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="super-admins">Super Admins</TabsTrigger>
+            <TabsTrigger value="create">Create Super Admin</TabsTrigger>
+            <TabsTrigger value="identity">Update Identity</TabsTrigger>
+          </TabsList>
 
-        {/* Admin Suspension Control */}
-        <Card className="p-6 mb-6">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                {settings.admin_access_suspended ? (
-                  <Lock className="h-5 w-5 text-red-600" />
-                ) : (
-                  <Unlock className="h-5 w-5 text-green-600" />
-                )}
-                <h2 className="text-xl font-semibold">
-                  Global Admin Suspension
-                </h2>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">
-                When enabled, blocks ALL admin logins (Chairman, Manager Admin,
-                Worker Admin). Only Master Admin can authenticate. This is an
-                instant, reversible emergency lock.
-              </p>
-              <div className="flex items-center gap-4">
-                <Switch
-                  checked={settings.admin_access_suspended}
-                  onCheckedChange={toggleAdminSuspension}
-                  disabled={actionLoading}
-                />
-                <span
-                  className={`font-medium ${
-                    settings.admin_access_suspended
-                      ? "text-red-600"
-                      : "text-green-600"
-                  }`}
-                >
-                  {settings.admin_access_suspended
-                    ? "SUSPENDED - Admins Locked Out"
-                    : "ACTIVE - Normal Admin Access"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Separator className="my-8" />
-
-        {/* Chairman Management */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="h-5 w-5 text-blue-600" />
-            <h2 className="text-xl font-semibold">Chairman Management</h2>
-          </div>
-          <p className="text-sm text-gray-600 mb-4">
-            Only Master Admin can create, replace, or remove the Chairman. This
-            control is hidden from all normal admin interfaces.
-          </p>
-
-          {chairman ? (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="font-medium text-gray-900">
-                    Current Chairman
-                  </p>
-                  <p className="text-sm text-gray-600">{chairman.full_name}</p>
-                  <p className="text-sm text-gray-500">{chairman.email}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Appointed: {new Date(chairman.created_at).toLocaleDateString()}
-                  </p>
+          <TabsContent value="super-admins" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Active Super Admins</CardTitle>
+                <CardDescription>Manage Super Admin access and authority</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {superAdmins.length === 0 ? (
+                    <p className="text-muted-foreground">No Super Admins found</p>
+                  ) : (
+                    superAdmins.map((admin) => (
+                      <div key={admin.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{admin.full_name}</p>
+                          <p className="text-sm text-muted-foreground">{admin.email}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Created: {new Date(admin.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedAdmin(admin);
+                              setUpdateForm({
+                                full_name: admin.full_name || "",
+                                date_of_birth: admin.date_of_birth || "",
+                                government_id_number: admin.government_id_number || "",
+                                hr_notes: "",
+                              });
+                            }}
+                          >
+                            <UserCheck className="w-4 h-4 mr-2" />
+                            Edit Identity
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDisableSuperAdmin(admin.id)}
+                          >
+                            <UserX className="w-4 h-4 mr-2" />
+                            Disable
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // TODO: Implement replace chairman
-                    setError("Replace Chairman feature - Coming soon");
-                  }}
-                  disabled={actionLoading}
-                >
-                  Replace Chairman
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    // TODO: Implement remove chairman
-                    setError("Remove Chairman feature - Coming soon");
-                  }}
-                  disabled={actionLoading}
-                >
-                  Remove Chairman
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-600 mb-4">No Chairman currently appointed</p>
-              <Button
-                onClick={() => {
-                  // TODO: Implement create chairman
-                  setError("Create Chairman feature - Coming soon");
-                }}
-                disabled={actionLoading}
-              >
-                Appoint Chairman
-              </Button>
-            </div>
-          )}
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        {/* Warning Notice */}
-        <Alert variant="destructive" className="mt-6">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Master Admin Notice:</strong> All actions in this panel are
-            logged internally for audit purposes. This interface is hidden from
-            regulators and normal admin UIs. Use only for emergency continuity
-            management.
-          </AlertDescription>
-        </Alert>
+          <TabsContent value="create" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Super Admin</CardTitle>
+                <CardDescription>Add a new Super Admin to the system</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="create-email">Email *</Label>
+                  <Input
+                    id="create-email"
+                    type="email"
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-password">Password *</Label>
+                  <Input
+                    id="create-password"
+                    type="password"
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-name">Full Name *</Label>
+                  <Input
+                    id="create-name"
+                    value={createForm.full_name}
+                    onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-dob">Date of Birth</Label>
+                  <Input
+                    id="create-dob"
+                    type="date"
+                    value={createForm.date_of_birth}
+                    onChange={(e) => setCreateForm({ ...createForm, date_of_birth: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="create-gov-id">Government ID Reference</Label>
+                  <Input
+                    id="create-gov-id"
+                    value={createForm.government_id_number}
+                    onChange={(e) => setCreateForm({ ...createForm, government_id_number: e.target.value })}
+                  />
+                </div>
+                <Button onClick={handleCreateSuperAdmin} className="w-full">
+                  Create Super Admin
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="identity" className="space-y-4">
+            {selectedAdmin ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Update Super Admin Identity</CardTitle>
+                  <CardDescription>Update HR information for {selectedAdmin.email}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="update-name">Full Name</Label>
+                    <Input
+                      id="update-name"
+                      value={updateForm.full_name}
+                      onChange={(e) => setUpdateForm({ ...updateForm, full_name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="update-dob">Date of Birth</Label>
+                    <Input
+                      id="update-dob"
+                      type="date"
+                      value={updateForm.date_of_birth}
+                      onChange={(e) => setUpdateForm({ ...updateForm, date_of_birth: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="update-gov-id">Government ID Reference</Label>
+                    <Input
+                      id="update-gov-id"
+                      value={updateForm.government_id_number}
+                      onChange={(e) => setUpdateForm({ ...updateForm, government_id_number: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="update-notes">Internal HR Notes</Label>
+                    <Textarea
+                      id="update-notes"
+                      value={updateForm.hr_notes}
+                      onChange={(e) => setUpdateForm({ ...updateForm, hr_notes: e.target.value })}
+                      rows={4}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleUpdateIdentity} className="flex-1">
+                      Save Changes
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedAdmin(null)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground">Select a Super Admin from the list to edit their identity</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

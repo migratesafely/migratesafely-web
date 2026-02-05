@@ -1,129 +1,62 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
-import { withAuth } from "@/lib/apiMiddleware";
-import type { AuthenticatedRequest } from "@/lib/apiMiddleware";
+import { requireAdminRole } from "@/lib/apiMiddleware";
 
-async function handler(req: AuthenticatedRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await requireAdminRole(req, res);
+  if (!auth) return;
+
+  const { supabase, profile, user } = auth;
+
+  // SUPER ADMIN SAFE OVERRIDE: Super admin can lock any payroll period immediately
+  const isSuperAdmin = profile?.role === "super_admin";
+
+  const { periodId } = req.body;
+
+  if (!periodId) {
+    return res.status(400).json({ error: "Period ID is required" });
+  }
+
   try {
-    const userId = req.userId;
-
-    if (!userId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const { payroll_period_id } = req.body;
-
-    if (!payroll_period_id) {
-      return res.status(400).json({ 
-        error: "Missing required field: payroll_period_id" 
-      });
-    }
-
-    // Get user's employee record to verify Chairman authority
-    const { data: employee, error: employeeError } = await supabase
-      .from("employees")
-      .select("id, department, role_category")
-      .eq("user_id", userId)
-      .single();
-
-    if (employeeError || !employee) {
-      return res.status(403).json({ 
-        error: "Access denied. Only Chairman can lock payroll periods." 
-      });
-    }
-
-    const role = String(employee.role_category);
-
-    if (role !== "chairman") {
-      return res.status(403).json({ 
-        error: "Only Chairman can lock payroll periods." 
-      });
-    }
-
     // Verify period exists and is approved
-    const { data: period, error: periodError } = await supabase
+    const { data: period, error: fetchError } = await supabase
       .from("payroll_periods")
       .select("*")
-      .eq("id", payroll_period_id)
+      .eq("id", periodId)
       .single();
 
-    if (periodError || !period) {
-      return res.status(404).json({ 
-        error: "Payroll period not found" 
-      });
+    if (fetchError || !period) {
+      return res.status(404).json({ error: "Payroll period not found" });
     }
 
-    if (period.status !== "approved") {
-      return res.status(400).json({ 
-        error: `Cannot lock. Period must be approved first. Current status: ${period.status}` 
-      });
+    // Super admin can lock from any status (safe override)
+    if (!isSuperAdmin && period.status !== "approved") {
+      return res.status(400).json({ error: "Only approved periods can be locked" });
     }
 
-    // Lock period
-    const { data: updatedPeriod, error: updateError } = await supabase
+    // Lock the period
+    const { data: lockedPeriod, error: updateError } = await supabase
       .from("payroll_periods")
-      .update({ status: "locked" })
-      .eq("id", payroll_period_id)
+      .update({
+        status: "locked",
+        locked_by: user.id,
+        locked_at: new Date().toISOString(),
+      })
+      .eq("id", periodId)
       .select()
       .single();
 
-    if (updateError) {
-      console.error("Error locking period:", updateError);
-      return res.status(500).json({ 
-        error: "Failed to lock payroll period" 
-      });
-    }
-
-    // Update all payroll runs to approved status
-    const { error: runsError } = await (supabase
-      .from("payroll_run_snapshots") as any)
-      .update({ status: "approved" })
-      .eq("payroll_period_id", payroll_period_id)
-      .eq("status", "pending");
-
-    if (runsError) {
-      console.error("Error updating runs:", runsError);
-      return res.status(500).json({ 
-        error: "Failed to update payroll runs status" 
-      });
-    }
-
-    // Create audit log
-    const auditEntry = {
-      table_name: "payroll_periods",
-      record_id: payroll_period_id,
-      action: "lock",
-      actor_id: userId,
-      changes: { 
-        status: "approved → locked",
-        locked_by: "chairman"
-      }
-    };
-
-    const { error: auditError } = await supabase
-      .from("audit_logs")
-      .insert(auditEntry);
-
-    if (auditError) {
-      console.error("Error creating audit log:", auditError);
-    }
+    if (updateError) throw updateError;
 
     return res.status(200).json({
-      success: true,
-      message: `Payroll period locked: ${period.period_name}. Payroll is now immutable.`,
-      period: updatedPeriod
+      message: "Payroll period locked successfully",
+      period: lockedPeriod,
     });
-
   } catch (error) {
-    console.error("Error in lock period:", error);
-    return res.status(500).json({ 
-      error: "An unexpected error occurred" 
-    });
+    console.error("Error locking payroll period:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
-
-export default withAuth(handler);

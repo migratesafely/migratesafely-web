@@ -86,7 +86,7 @@ export default function AdminManagementPage() {
         return;
       }
 
-      // Check for Chairman
+      // Check if user is chairman or manager_admin
       const { data: employee } = await supabase
         .from("employees")
         .select("role_category")
@@ -94,21 +94,17 @@ export default function AdminManagementPage() {
         .maybeSingle();
 
       const isChairman = employee?.role_category === "chairman";
-      
-      // Fallback to profile role for other admins
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+
+      // Get profile role
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
 
       setUserRole(isChairman ? "chairman" : profile?.role || "");
-      
+
       if (!isChairman && !["master_admin", "manager_admin"].includes(profile?.role || "")) {
-        router.push("/admin");
+        router.push("/dashboard");
         return;
       }
-      
+
       setLoading(false);
       fetchAdmins();
     } catch (error) {

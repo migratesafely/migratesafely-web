@@ -28,21 +28,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
   // Require admin role
   const auth = await requireAdminRole(req, res);
-  if (!auth) return;
+  if (!auth) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+  }
 
   try {
-    // Only Chairman can run winner selection
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      await logAdminAction({
-        actorId: auth.userId,
-        action: "PRIZE_DRAW_RUN_ATTEMPT_DENIED",
-        details: { reason: "Only Chairman can run prize draws" }
-      });
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
-
     const { drawId }: RunWinnersRequest = req.body;
 
     if (!drawId) {

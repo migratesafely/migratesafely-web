@@ -69,6 +69,7 @@ export default function TierAchievementConfigPage() {
         return;
       }
 
+      // Only Chairman can access this page
       const { data: employee } = await supabase
         .from("employees")
         .select("role_category")
@@ -76,11 +77,9 @@ export default function TierAchievementConfigPage() {
         .maybeSingle();
 
       const isChairman = employee?.role_category === "chairman";
-
+      
       if (!isChairman) {
-        setErrorMessage("Access Denied: Chairman privileges required");
-        setLoading(false);
-        setTimeout(() => router.push("/admin"), 2000);
+        router.push("/dashboard");
         return;
       }
 

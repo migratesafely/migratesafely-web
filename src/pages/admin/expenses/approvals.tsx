@@ -9,8 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { agentPermissionsService } from "@/services/agentPermissionsService";
 import { AlertCircle, CheckCircle2, XCircle, FileText, Calendar, DollarSign, User, Building, Eye, Download } from "lucide-react";
 import { formatBDT } from "@/lib/bdtFormatter";
+import { useToast } from "@/hooks/use-toast";
 
 interface ExpenseRequest {
   id: string;
@@ -85,9 +87,11 @@ export default function ExpenseApprovalsPage() {
       const role = employee.role_category;
       const dept = employee.department;
 
-      // Check if user has approval authority
-      const approvalRoles = ["department_head", "general_manager", "managing_director", "chairman"];
-      const hasAuthority = approvalRoles.includes(role);
+      // Check if user has approval authority (Super Admin replaces Chairman)
+      const isSuperAdmin = await agentPermissionsService.isSuperAdmin(user.id);
+      const approvalRoles = ["department_head", "general_manager", "managing_director"];
+      
+      const hasAuthority = approvalRoles.includes(role) || isSuperAdmin;
 
       if (!hasAuthority) {
         setError("You do not have approval authority.");
@@ -95,7 +99,7 @@ export default function ExpenseApprovalsPage() {
         return;
       }
 
-      setUserRole(role);
+      setUserRole(isSuperAdmin ? "super_admin" : role);
       setUserDepartment(dept);
       setUserAuthorized(true);
       await loadPendingApprovals();
@@ -128,11 +132,13 @@ export default function ExpenseApprovalsPage() {
   };
 
   const getApprovalLevel = (role: string): string => {
+    // Map Chairman to highest authority (formerly chairman)
+    if (role === "super_admin") return "chairman";
+    
     const mapping: Record<string, string> = {
       department_head: "dept_head",
       general_manager: "gm",
-      managing_director: "md",
-      chairman: "chairman"
+      managing_director: "md"
     };
     return mapping[role] || "";
   };
@@ -265,7 +271,8 @@ export default function ExpenseApprovalsPage() {
       department_head: "Department Head",
       general_manager: "General Manager",
       managing_director: "Managing Director",
-      chairman: "Chairman"
+      super_admin: "Super Admin (Final Authority)",
+      chairman: "Chairman (Final Authority)"
     };
     return labels[role] || role;
   };

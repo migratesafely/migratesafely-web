@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { prizeDrawService } from "@/services/prizeDrawService";
-import { requireAdminRole } from "@/lib/apiMiddleware";
+import { requireAuth } from "@/lib/apiMiddleware";
 import { logAdminAction } from "@/services/auditLogService";
 import { agentPermissionsService } from "@/services/agentPermissionsService";
 
@@ -34,17 +34,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   // Require admin role
-  const auth = await requireAdminRole(req, res);
-  if (!auth) return;
+  const { auth } = await requireAuth(req, res);
+  if (!auth || !auth.userId) {
+    return; // requireAuth handles response
+  }
+
+  // Only Super Admin can announce prize draws
+  const isSuperAdmin = await agentPermissionsService.isSuperAdmin(auth.userId);
+
+  if (!isSuperAdmin) {
+    return res.status(403).json({ success: false, error: "Forbidden: Super Admin access required" });
+  }
 
   try {
-    // Only Chairman can announce winners
-    const isChairman = await agentPermissionsService.isChairman(auth.userId);
-    
-    if (!isChairman) {
-      return res.status(403).json({ success: false, error: "Forbidden: Chairman access required" });
-    }
-
     // Parse request body
     const { drawId }: AnnounceDrawRequest = req.body;
 

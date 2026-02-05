@@ -53,16 +53,15 @@ export default function PayrollTaxCompliancePage() {
         .eq("user_id", user.id)
         .single();
 
-      if (
+      const canAccess =
         employee?.role_category === "chairman" ||
-        employee?.role_category === "managing_director" ||
-        employee?.department === "accounts"
-      ) {
+        employee?.role_category === "cfo";
+      
+      if (!canAccess) {
+        router.push("/admin");
+      } else {
         setLoading(false);
-        return;
       }
-
-      router.push("/admin");
     } catch (error) {
       console.error("Access check error:", error);
       router.push("/admin/login");

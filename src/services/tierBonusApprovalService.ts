@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { notificationService } from "./notificationService";
 
 export interface TierBonusApproval {
   id: string;
@@ -51,10 +52,22 @@ export const tierBonusApprovalService = {
         p_currency_code: currencyCode,
       });
 
-      if (error) {
-        console.error("Error requesting tier bonus approval:", error);
-        return { success: false, error: error.message };
+      if (error || !data) {
+        console.error("Failed to create tier bonus approval:", error);
+        return { success: false, error: "Failed to create approval request" };
       }
+
+      // Notify Super Admin
+      await notificationService.notifyAdmins(
+        "super_admin",
+        "tier_bonus_pending",
+        "New Tier Bonus Request",
+        `Tier bonus request for member ${memberId}`,
+        {
+          referenceId: data, // data is the ID string
+          referenceType: "tier_bonus_approval"
+        }
+      );
 
       return { success: true, approvalId: data };
     } catch (error) {
